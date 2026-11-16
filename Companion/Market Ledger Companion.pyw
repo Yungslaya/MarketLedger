@@ -20,7 +20,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 # Same number as the Market Ledger release it ships with.
-VERSION = "1.3.4"
+VERSION = "1.3.5"
 
 # ---------- finding WoW ----------
 
@@ -162,7 +162,8 @@ GUIDANCE = (
     "do not ask the player to compare numbers already provided. Use the vendor comparisons when present. "
     "TSM minimum buyout is a cached reference with unknown age, not a live quote. If the scan ask is unknown, "
     "explain that specific gap and give a conditional recommendation using the reference and minimum ask "
-    "to beat vendor. Never silently replace a missing scan price with a regional average."
+    "to beat vendor. Never silently replace a missing scan price with a regional average. "
+    "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it."
 )
 PLAN_FORMAT = (
     "After your advice, put the complete PLAN in one plain-text code block for easy copying, with no trailing backslashes. "

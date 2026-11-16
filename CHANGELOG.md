@@ -2,6 +2,16 @@
 
 Every released version, newest first.
 
+## 1.3.5 (2026-11-16)
+
+- **Sell, craft or smelt: checked every scan.** Every recipe you know that uses something in your bags is now compared with selling the materials, for every profession: smelting ore, potions from herbs, cloth, leather and more.
+- Each one says **craft it**, **small gain**, **sell the materials** or **price unknown**. Before, smelting was hidden unless it beat selling the ore by a lot.
+- The Craft tab shows all of them, and AI Help is asked to give a sell-or-craft answer for each. Only the "craft it" ones set your materials aside.
+- **Better farm zones.** With ProfessionPal 1.3.7, Farm picks use the best zones from Wowhead's and Icy Veins' farming guides, marked **(BEST)**. Mithril now points to The Hinterlands instead of Desolace.
+- **Stuck Auction House.** If WoW's Auction House stops answering, the scan now says so after 20 seconds and tells you to log out and back in, instead of just waiting.
+
+Type `/reload` after updating. Run Scan Bags again to price the bars and potions you could make.
+
 ## 1.3.4 (2026-11-16)
 
 - **Sell what you craft without scanning again.** The AI Help report now says what each recipe makes, like Smelt Iron making Iron Bar, along with the price your scan found for it.

@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.4 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.3.5:** Every scan compares selling your materials with crafting or smelting them, for every profession. Farm picks use the guides' best zones. Type `/reload` after updating.
 - **1.3.4:** Plans can sell what you craft, like Iron Bars, at the scanned price without scanning again. Type `/reload` after updating.
 - **1.3.3:** Fake listings (like Fish Oil at 100 gold) are ignored instead of treated as the price. Type `/reload` after updating.
 - **1.3.2:** Small fixes to two in-game messages. Type `/reload` after updating.
@@ -96,5 +97,6 @@ The Windows app needs Python 3. It reads a scan saved by `/reload` or logout and
 - Price and sales numbers from [TradeSkillMaster](https://www.tradeskillmaster.com/) when you have it (optional).
 - Road routes by [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) by cjber (optional).
 - Gathering spots from the [Wowhead WoW: Forever database](https://www.wowhead.com/forever), through ProfessionPal.
+- Best farming zones from Wowhead's farming guides and Icy Veins' WoW: Forever leveling guides, through ProfessionPal.
 
 None of their code is included.

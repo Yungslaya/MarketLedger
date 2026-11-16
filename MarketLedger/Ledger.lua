@@ -433,7 +433,7 @@ local function act(entry)
         -- open the map on the zone, with the spots drawn and the way there started
         local item = entry.farm.item
         if ML.ShowZoneOnMap then
-            ML:ShowZoneOnMap({ text = "Farm " .. item.name,
+            ML:ShowZoneOnMap({ text = "Farm " .. item.name .. (entry.farm.best and " (best zone)" or ""),
                 nodes = { { item.node or item.name, item.skill, item.id } } }, entry.farm.zone)
         end
     elseif entry.page == "PlanCraft" then
@@ -661,8 +661,10 @@ local function stockPlan(char, pct)
     return plan
 end
 
--- Known recipes that sell for at least 20% more than their materials, best first.
-local function craftOptions(char, stock, market)
+-- Every known recipe (smelting included) that uses something you carry, so each scan can say
+-- whether to sell the raw materials or craft them. `worth` = the result sells for at least 20% more
+-- than the materials; only those take materials away from selling. Priced ones first, best gain first.
+local function craftOptions(char, carried, market)
     local crafts = {}
     local known = ML.KnownRecipes(char)
     for name, id in pairs(known or {}) do
@@ -673,37 +675,41 @@ local function craftOptions(char, stock, market)
         if schematic then
             for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
                 local reagent = slot.reagents and #slot.reagents == 1 and slot.reagents[1]
-                if reagent and (stock[reagent.itemID] or 0) > 0 then usesStock = true end
+                if reagent and slot.required ~= false and (carried[reagent.itemID] or 0) > 0 then usesStock = true end
             end
         end
         if usesStock and output and type(schematic.quantityMin) == "number" and schematic.quantityMin > 0 then
+            -- price() also puts the item on the next scan's list, so ask for every price before giving up.
             local net, outputPrice = price(output)
             local costs, cost = {}, 0
-            local slots = schematic.reagentSlotSchematics or {}
-            local valid, hasSpare = net ~= nil and #slots > 0, false
-            for _, slot in ipairs(slots) do
-                local reagent = slot.reagents and #slot.reagents == 1 and slot.reagents[1]
-                local item = reagent and reagent.itemID
-                local ingredientValue = item and (market[item] or price(item))
-                if not ingredientValue or slot.required == false or type(slot.quantityRequired) ~= "number"
-                    or slot.quantityRequired <= 0 then
-                    valid = false
-                    break
+            local valid, priced = true, net ~= nil
+            for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+                if slot.required ~= false then   -- optional extras are left out
+                    local reagent = slot.reagents and #slot.reagents == 1 and slot.reagents[1]
+                    local item = reagent and reagent.itemID
+                    if not item or type(slot.quantityRequired) ~= "number" or slot.quantityRequired <= 0 then
+                        valid = false
+                    else
+                        local ingredientValue = market[item] or price(item)
+                        if not ingredientValue then priced = false end
+                        costs[item] = (costs[item] or 0) + slot.quantityRequired
+                        cost = cost + slot.quantityRequired * (ingredientValue or 0)
+                    end
                 end
-                costs[item] = (costs[item] or 0) + slot.quantityRequired
-                cost = cost + slot.quantityRequired * ingredientValue
-                hasSpare = hasSpare or (stock[item] or 0) > 0
             end
-            if valid and hasSpare and net * schematic.quantityMin > cost * 1.2 then
-                crafts[#crafts + 1] = { name = name, costs = costs, gain = net * schematic.quantityMin - cost,
-                    outputPrice = outputPrice, itemID = tonumber(output:match("item:(%d+)")), profKey = professionKey(id),
-                    yield = schematic.quantityMin }
+            if valid and next(costs) then
+                local yield = schematic.quantityMin
+                local gain = priced and (net * yield - cost) or nil
+                crafts[#crafts + 1] = { name = name, costs = costs, gain = gain, cost = cost,
+                    worth = priced and net * yield > cost * 1.2, outputPrice = outputPrice,
+                    itemID = tonumber(output:match("item:(%d+)")), profKey = professionKey(id), yield = yield }
             end
         end
     end
     table.sort(crafts, function(a, b)
-        if a.gain == b.gain then return a.name < b.name end
-        return a.gain > b.gain
+        if (a.gain ~= nil) ~= (b.gain ~= nil) then return a.gain ~= nil end
+        if a.gain ~= b.gain then return a.gain > b.gain end
+        return a.name < b.name
     end)
     return crafts
 end
@@ -724,15 +730,21 @@ local function farmPicks()
         local def = ML.byKey and ML.byKey[item.prof]
         local skill = def and ML:GetSkill(def)
         if skill and skill >= item.skill and level >= (item.level or 0) then
-            local zone, spots
+            local zone, spots, best
             if item.node then
-                -- the zone with the most known spots that is not far above your level
+                -- The farm guides' best zone (ProfessionPal's BEST_ZONES) that is not far above your
+                -- level; without one, the zone with the most known spots. Spot counts alone pick
+                -- scattered zones like Desolace for Mithril.
+                local bestRank = 99
                 for map in pairs(ML.NODES and ML.NODES[item.node] or {}) do
                     local range, count = ML.ZONE_LEVEL[map], ML:NodeCount(item.node, map)
-                    if (not range or range[1] <= level + 3) and count > (spots or 0) then
-                        zone, spots = zoneNameOf(map), count
+                    local rank = ML:BestZoneRank(item.name, map) or 99
+                    if (not range or range[1] <= level + 3)
+                        and (rank < bestRank or (rank == bestRank and count > (spots or 0))) then
+                        zone, spots, bestRank = zoneNameOf(map), count, rank
                     end
                 end
+                best = bestRank < 99
             else
                 -- leather: the zone the skinning guide sends you to for it
                 for _, st in ipairs(def.steps or {}) do
@@ -750,7 +762,7 @@ local function farmPicks()
                 local market = ML:MarketData(item.id)
                 local sells = market and market.saleRate and (0.5 + market.saleRate) or 1
                 picks[#picks + 1] = { item = item, zone = zone, spots = spots, net = net, listed = listed,
-                    signature = signature, market = market,
+                    signature = signature, market = market, best = best,
                     score = (net or 0) * (spots or LEATHER_WEIGHT) * sells }
             end
         end
@@ -772,7 +784,8 @@ local function farmLines(picks)
     for _, pick in ipairs(picks) do
         lines[#lines + 1] = { page = "Farm", farm = pick, button = "Map", id = pick.item.id,
             signature = pick.signature, name = pick.item.name,
-            title = pick.item.name .. "  -  " .. pick.zone .. (pick.spots and (" (" .. pick.spots .. " spots)") or ""),
+            title = pick.item.name .. "  -  " .. pick.zone .. (pick.best and " (BEST)" or "")
+                .. (pick.spots and (" (" .. pick.spots .. " spots)") or ""),
             action = ML.byKey[pick.item.prof].name, auction = money(pick.net), vendor = "" }
     end
     return lines
@@ -812,9 +825,17 @@ local function compute(pct, wantPage)
         if row.net and row.vendor then market[row.id] = max(row.net, row.vendor) end
     end
 
-    -- Crafts take their materials out of the offered stock first.
+    -- Everything you carry that could be sold (raw materials for smelting and crafting).
+    local carried = {}
+    for _, row in ipairs(rows) do
+        if not row.bound then carried[row.id] = (carried[row.id] or 0) + row.count end
+    end
+
+    -- Crafts worth doing take their materials out of the offered stock first.
+    -- Every recipe that uses your materials is reported, worth it or not, so selling raw,
+    -- smelting and crafting are always compared.
     local allocated, lines, recipeReport = {}, {}, {}
-    for _, craft in ipairs(craftOptions(char, stock, market)) do
+    for _, craft in ipairs(craftOptions(char, carried, market)) do
         local count = math.huge
         local ingredients = {}
         for id, need in pairs(craft.costs) do
@@ -823,10 +844,23 @@ local function compute(pct, wantPage)
         end
         table.sort(ingredients)
         local makes = craft.itemID and itemDetails(craft.itemID)
-        recipeReport[#recipeReport + 1] = ("%s | craftable %d | output ask %d | extra net per craft %d | %s"):format(
-            craft.name, count, craft.outputPrice, craft.gain, table.concat(ingredients, ", "))
-            .. (makes and (" | makes " .. makes .. " x" .. (craft.yield or 1)) or "")
-        if count > 0 then
+        local verdict
+        if not craft.gain then verdict = "verdict: price unknown, scan again"
+        elseif craft.worth then verdict = "verdict: craft it, beats selling the materials"
+        elseif craft.gain > 0 then verdict = "verdict: small gain, under 20% over selling the materials"
+        else verdict = "verdict: sell the materials, crafting loses money" end
+        recipeReport[#recipeReport + 1] = ("%s | craftable %d | output ask %s | extra net per craft %s | %s"):format(
+            craft.name, count, tostring(craft.outputPrice or "unknown"), tostring(craft.gain or "unknown"),
+            table.concat(ingredients, ", "))
+            .. (makes and (" | makes " .. makes .. " x" .. (craft.yield or 1)) or "") .. " | " .. verdict
+        if not craft.worth then
+            if wantPage == "Craft" then
+                lines[#lines + 1] = { title = craft.name, page = "Craft", qty = 0, costs = craft.costs,
+                    outputPrice = craft.outputPrice,
+                    action = craft.gain and "Sell materials" or "Price unknown",
+                    auction = craft.gain and ((craft.gain >= 0 and "+" or "-") .. money(math.abs(craft.gain))) or "—" }
+            end
+        elseif count > 0 then
             for id, need in pairs(craft.costs) do
                 stock[id] = stock[id] - count * need
                 allocated[id] = (allocated[id] or 0) + count * need
@@ -884,7 +918,7 @@ local function compute(pct, wantPage)
             }
         end
     end
-    report[#report + 1] = "Craft opportunities with known prices:"
+    report[#report + 1] = "Craft opportunities (sell the materials, or craft or smelt them):"
     for _, recipe in ipairs(recipeReport) do report[#report + 1] = recipe end
     if #recipeReport == 0 then report[#report + 1] = "none" end
 
@@ -894,8 +928,8 @@ local function compute(pct, wantPage)
         report[#report + 1] = "name | auction ask each | best zone | known spawn spots"
         for i = 1, min(#picks, 12) do
             local pick = picks[i]
-            report[#report + 1] = table.concat({ pick.item.name, pick.listed or "unknown", pick.zone,
-                pick.spots or "beasts" }, " | ")
+            report[#report + 1] = table.concat({ pick.item.name, pick.listed or "unknown",
+                pick.zone .. (pick.best and " (top zone in farm guides)" or ""), pick.spots or "beasts" }, " | ")
         end
     end
 
@@ -1105,7 +1139,8 @@ local PROMPT = table.concat({
         .. "do not ask the player to compare numbers already provided. Use the vendor comparisons when present. "
         .. "TSM minimum buyout is a cached reference with unknown age, not a live quote. If the scan ask is unknown, "
         .. "explain that specific gap and give a conditional recommendation using the reference and minimum ask "
-        .. "to beat vendor. Never silently replace a missing scan price with a regional average.",
+        .. "to beat vendor. Never silently replace a missing scan price with a regional average. "
+        .. "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it.",
     "",
     "After your advice, put the complete PLAN in one plain-text code block for easy copying, with no trailing backslashes. "
         .. "Start with a line containing only PLAN. Then write one line per step, in the order "
@@ -1544,8 +1579,13 @@ local function advance()
             paused = true
             waiting.retry = nil
             trace("Throttle stayed busy for 90s; queue preserved")
-            setStatus("Scan paused: AH busy. Click Scan Bags to resume, or Debug.")
+            setStatus("Scan paused: WoW's AH is stuck. Log out and back in, then Scan Bags.")
             return
+        end
+        if scanClock() - waiting.since >= 20 and not waiting.stuck then
+            waiting.stuck = true
+            trace("Throttle busy for 20s")
+            setStatus("WoW's AH is not answering. Log out and back in, then Scan Bags.")
         end
         local retry = {}
         waiting.retry = retry
