@@ -43,6 +43,14 @@ local function savedPrices()
     return ML.db.ledgerPrices[key]
 end
 
+-- When each saved price was seen (Unix time), same keys as savedPrices. Filled from 1.3.7 on.
+local function priceTimes()
+    ML.db.ledgerPriceAt = ML.db.ledgerPriceAt or {}
+    local key = GetRealmName() .. ":" .. UnitFactionGroup("player")
+    ML.db.ledgerPriceAt[key] = ML.db.ledgerPriceAt[key] or {}
+    return ML.db.ledgerPriceAt[key]
+end
+
 -- Lowest asks that were thrown out as fake listings: signature -> { ask = copper, usual = copper }.
 local function fakeAsks()
     ML.db.ledgerFakeAsks = ML.db.ledgerFakeAsks or {}
@@ -1531,6 +1539,12 @@ function ML:ShowDebug()
     panel.textBox.back = false
 end
 
+-- Let ProfessionPal redraw its material prices. Its failure never affects Market Ledger.
+local function notifyPrices()
+    local pal = ML.Pal
+    if type(pal) == "table" and type(pal.OnMarketLedgerPrices) == "function" then pcall(pal.OnMarketLedgerPrices, pal) end
+end
+
 local function finishScan(message)
     trace(("Scan ended after %.1fs: %s"):format(scanClock() - scanStarted, message))
     queue, current, waiting = nil, nil, nil
@@ -1538,6 +1552,7 @@ local function finishScan(message)
     generation = generation + 1
     refresh()
     setStatus(message)
+    notifyPrices()
 end
 
 local function incompleteScan(reason)
@@ -1710,6 +1725,7 @@ local function receive(event, resultKey)
         fakeAsks()[current.signature] = nil
     end
     savedPrices()[current.signature] = best and floor(best) or nil
+    priceTimes()[current.signature] = best and now() or nil
     if best then ML:RecordPrice(current.signature, floor(best)) end
     current = nil
     local run = generation
@@ -1763,9 +1779,11 @@ local function build()
     ML.UIButton(panel, "Clear Prices", 96, 25, function()
         if queue then setStatus("Wait for the scan to finish."); return end
         wipe(savedPrices())
+        wipe(priceTimes())
         wipe(fakeAsks())
         refresh()
         setStatus("Saved prices cleared.")
+        notifyPrices()
     end):SetPoint("TOPRIGHT", -18, -106)
 
     panel.status = ML.UIText(panel, 14, ML.C.muted or ML.C.white)
@@ -1876,6 +1894,54 @@ events:SetScript("OnEvent", function(_, event, key, action)
         end
     end
 end)
+
+-- ---------- 8. Price lookup for other addons ----------
+-- Read-only: never scans and never contacts the Auction House server.
+-- MarketLedger:PriceForItem(itemID) -> copper, seenAt
+--   copper = the lowest Auction House asking price per item from your last scan of this item on
+--            this realm and faction (before the 5% Auction House cut; fake listings already left out).
+--            It is an asking price, not a guaranteed sale price, and never a vendor price.
+--   seenAt = Unix time that price was seen.
+-- Returns nil, nil when there is no usable price (never scanned, cleared, or saved before 1.3.7).
+ML.PRICE_API = 1
+
+local function finitePositive(v) return type(v) == "number" and v > 0 and v == v and v < math.huge end
+
+-- Reads saved tables without creating them, so a lookup never changes saved settings.
+local function savedFor(field)
+    local db = ML.db
+    local realm, faction = GetRealmName and GetRealmName(), UnitFactionGroup and UnitFactionGroup("player")
+    if type(db) ~= "table" or type(realm) ~= "string" or type(faction) ~= "string" then return nil end
+    local all = db[field]
+    local mine = type(all) == "table" and all[realm .. ":" .. faction]
+    return type(mine) == "table" and mine or nil
+end
+
+function ML:PriceForItem(itemID)
+    if not finitePositive(itemID) or itemID ~= floor(itemID) then return nil, nil end
+    local prices, times = savedFor("ledgerPrices"), savedFor("ledgerPriceAt")
+    if not (prices and times) then return nil, nil end
+    local signature
+    local key = ah and read(ah.MakeItemKey, itemID)
+    if type(key) == "table" then signature = itemSignature(key) end
+    if not signature then
+        -- Only when WoW gives no usable item key: accept exactly one plain saved entry for this item
+        -- ("id:level:0:0"). Several levels saved = unknown which one, so no price.
+        local pattern = "^" .. itemID .. ":%d+:0:0$"
+        for saved in pairs(prices) do
+            if type(saved) == "string" and saved:match(pattern) then
+                if signature then return nil, nil end
+                signature = saved
+            end
+        end
+    end
+    if not signature then return nil, nil end
+    local copper, seenAt = prices[signature], times[signature]
+    if not (finitePositive(copper) and finitePositive(seenAt)) then return nil, nil end
+    copper = floor(copper)
+    if copper < 1 then return nil, nil end
+    return copper, seenAt
+end
 
 function ML:Toggle()
     if not ML.db then return end

@@ -2,6 +2,14 @@
 
 Every released version, newest first.
 
+## 1.3.7
+
+- **Prices in ProfessionPal.** With ProfessionPal 1.3.8.4 or newer, Farm Planner shows an Auction House price estimate for the material you select, once Market Ledger has scanned that material. Materials you haven't scanned show "No price data".
+- Prices saved before this version show there after your next **Scan Bags**.
+- **Clear Prices** also clears the prices shown in ProfessionPal.
+
+Type `/reload` after updating.
+
 ## 1.3.6 (2026-11-16)
 
 - **Update notices.** If someone in your guild or group has a newer version, you get one message saying an update is out in the CurseForge app. Only version numbers are shared, and nothing is sent in combat.

@@ -4,9 +4,11 @@ See what to auction, vendor, craft, keep or farm in WoW: Forever. Open `/ledger`
 
 [Download](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedger.zip) · [Latest changes](https://github.com/Yungslaya/MarketLedger/releases/latest)
 
-Also on CurseForge. Version 1.3.4 · for WoW: Forever (interface 16001)
+Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
+
+- **1.3.7:** ProfessionPal 1.3.8.4+ shows scanned material price estimates in Farm Planner. Scan Bags after updating to populate prices and observation times.
 
 - **1.3.6:** A message tells you when a newer version is out in the CurseForge app. Fully restart WoW after updating (a new file was added).
 - **1.3.5:** Every scan compares selling your materials with crafting or smelting them, for every profession. Farm picks use the guides' best zones. Type `/reload` after updating.
@@ -45,7 +47,7 @@ Active quest items, blacklisted items and known profession reserves are protecte
 
 ## Use ChatGPT, Claude or another AI chat
 
-No Companion or API key is required for this route.
+No API key is required for this route.
 
 1. Finish **Scan Bags**.
 2. Open **AI Help**, click **Copy for AI**, and press Ctrl+C.
@@ -79,19 +81,13 @@ Vendor comparisons can include TSM's cached realm minimum buyout for the item's 
 
 Spots show possible spawns, not currently available nodes. Consider demand and travel time as well as asking price. Nothing moves or gathers for you.
 
-## Optional desktop Companion
-
-[Setup and use](Companion/README.md) · [Download](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedgerCompanion.pyw)
-
-The Windows app needs Python 3. It reads a scan saved by `/reload` or logout and writes a plan file WoW loads on the next `/reload`. Use **Copy for AI chat** and **Paste AI reply**, or optionally enter a provider API key and click **Ask now**. API requests may incur provider charges. Copy and paste uses whichever chat service you choose.
-
 ## Troubleshooting
 
 - Stop other auction scans before resuming a paused scan.
 - Click **Debug**, copy the report, and describe what you clicked and what happened. It contains scan/selling events, not chat history.
 - Unknown prices stay unknown. Rescan rather than treating them as zero.
 - For crafting, check materials, selected profession and the required anvil, fire or other station.
-- TSM and the Companion are optional. Craft/Farm integration needs ProfessionPal; road routing also needs Shortest Path Forever.
+- TSM is optional. Craft/Farm integration needs ProfessionPal; road routing also needs Shortest Path Forever.
 
 ## Credits
 
