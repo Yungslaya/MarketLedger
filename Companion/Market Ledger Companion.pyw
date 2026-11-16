@@ -20,7 +20,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 # Same number as the Market Ledger release it ships with.
-VERSION = "1.3.3"
+VERSION = "1.3.4"
 
 # ---------- finding WoW ----------
 
@@ -115,7 +115,14 @@ def parse_report(report):
             parts = [part.strip() for part in line.split(" | ")]
             craftable = re.match(r"craftable (\d+)$", parts[1]) if len(parts) >= 4 else None
             if craftable:
-                info["crafts"][parts[0].lower()] = {"name": parts[0], "craftable": int(craftable.group(1))}
+                ask = re.match(r"output ask (\d+)$", parts[2])
+                craft = {"name": parts[0], "craftable": int(craftable.group(1)),
+                         "ask": int(ask.group(1)) if ask else None, "makes": None, "yield": 1}
+                for part in parts[4:]:
+                    made = re.match(r"makes (.+) x(\d+)$", part)
+                    if made:
+                        craft["makes"], craft["yield"] = made.group(1), int(made.group(2))
+                info["crafts"][parts[0].lower()] = craft
         else:
             parts = [part.strip() for part in line.rsplit(" | ", 8)]
             if len(parts) == 9 and parts[1].isdigit():
@@ -166,8 +173,9 @@ PLAN_FORMAT = (
     "Craft | recipe name | quantity\n"
     "Keep | item name | short reason\n"
     "Farm | item name | zone name\n"
-    "Copy item and recipe names exactly from the report. Put a Craft step before the step that sells "
-    "what it makes."
+"Copy item and recipe names exactly from the report. Put a Craft step before the step that sells "
+    "what it makes. Sell a crafted item with an Auction step that uses the item name after the word makes "
+    "in its craft line and that line's output ask; it does not need a new scan."
 )
 
 
@@ -211,7 +219,7 @@ def parse_plan(reply, report):
     markers = [i for i, line in enumerate(lines) if PLAN_MARKER.match(line)]
     if markers:
         lines = lines[markers[-1] + 1:]
-    steps, skipped, crafted = [], [], set()
+    steps, skipped, crafted = [], [], {}
     for line in lines:
         parts = [part.strip(" `*") for part in BULLET.sub("", line).strip().strip("|").split("|")]
         action = parts[0].lower() if parts else ""
@@ -235,7 +243,12 @@ def parse_plan(reply, report):
                 if craft["craftable"]:
                     amount = min(amount, craft["craftable"])
                 steps.append({"action": "Craft", "name": craft["name"], "qty": amount})
-                crafted.add(key)
+                ask = craft["ask"]
+                made = {"name": craft["makes"] or craft["name"], "qty": amount * (craft["yield"] or 1),
+                        "price": ask - 1 if ask and ask > 1 else ask, "step": len(steps) - 1, "sold": False}
+                crafted[key] = made
+                if craft["makes"]:
+                    crafted[craft["makes"].lower()] = made
         else:
             if not item and key not in crafted:
                 skipped.append(f"{parts[1]}: not in your scan")
@@ -243,20 +256,35 @@ def parse_plan(reply, report):
             if not amount:
                 skipped.append(f"{parts[1]}: no amount to sell")
                 continue
-            if item:
+            made = crafted.get(key)
+            if made:
+                # something you are about to craft sells what the craft makes
+                amount = min(amount, made["qty"])
+                made["sold"] = True
+            elif item:
                 if item["available"] < 1:
                     skipped.append(f"{item['name']}: kept for your professions")
                     continue
                 amount = min(amount, item["available"])
-            step = {"action": SELL_ACTIONS[action], "name": item["name"] if item else info["crafts"][key]["name"],
-                    "qty": amount}
+            step = {"action": SELL_ACTIONS[action], "name": made["name"] if made else item["name"], "qty": amount}
             if action == "auction":
-                listed = (copper(parts[3]) if len(parts) > 3 else None) or (item and item["ask"])
+                listed = ((copper(parts[3]) if len(parts) > 3 else None) or (made and made["price"])
+                          or (item and item["ask"]))
                 if not listed:
                     skipped.append(f"{step['name']}: no auction price")
                     continue
                 step["price"] = listed
             steps.append(step)
+    # a Craft step with nothing selling what it makes gets that Auction step, at the scanned price
+    added, seen = 0, set()
+    for made in sorted(crafted.values(), key=lambda m: m["step"]):
+        if id(made) in seen:
+            continue
+        seen.add(id(made))
+        if not made["sold"] and made["price"] and made["qty"] > 0:
+            steps.insert(made["step"] + 1 + added, {"action": "Auction", "name": made["name"], "qty": made["qty"],
+                                                     "price": made["price"], "note": "from the craft above"})
+            added += 1
     return steps, skipped
 
 

@@ -696,7 +696,8 @@ local function craftOptions(char, stock, market)
             end
             if valid and hasSpare and net * schematic.quantityMin > cost * 1.2 then
                 crafts[#crafts + 1] = { name = name, costs = costs, gain = net * schematic.quantityMin - cost,
-                    outputPrice = outputPrice, itemID = tonumber(output:match("item:(%d+)")), profKey = professionKey(id) }
+                    outputPrice = outputPrice, itemID = tonumber(output:match("item:(%d+)")), profKey = professionKey(id),
+                    yield = schematic.quantityMin }
             end
         end
     end
@@ -821,8 +822,10 @@ local function compute(pct, wantPage)
             ingredients[#ingredients + 1] = (itemDetails(id) or tostring(id)) .. " x" .. need
         end
         table.sort(ingredients)
+        local makes = craft.itemID and itemDetails(craft.itemID)
         recipeReport[#recipeReport + 1] = ("%s | craftable %d | output ask %d | extra net per craft %d | %s"):format(
             craft.name, count, craft.outputPrice, craft.gain, table.concat(ingredients, ", "))
+            .. (makes and (" | makes " .. makes .. " x" .. (craft.yield or 1)) or "")
         if count > 0 then
             for id, need in pairs(craft.costs) do
                 stock[id] = stock[id] - count * need
@@ -1112,8 +1115,9 @@ local PROMPT = table.concat({
     "Craft | recipe name | quantity",
     "Keep | item name | short reason",
     "Farm | item name | zone name",
-    "Copy item and recipe names exactly from the report. Put a Craft step before the step that sells "
-        .. "what it makes.",
+"Copy item and recipe names exactly from the report. Put a Craft step before the step that sells "
+        .. "what it makes. Sell a crafted item with an Auction step that uses the item name after the word makes "
+        .. "in its craft line and that line's output ask; it does not need a new scan.",
 }, "\n")
 
 local function trim(text) return (text:gsub("^%s+", ""):gsub("%s+$", "")) end
@@ -1162,7 +1166,13 @@ local function parseReport(report)
             local craftable = n >= 4 and parts[2]:match("^craftable (%d+)$")
             if craftable then
                 local name = trim(parts[1])
-                info.crafts[name:lower()] = { name = name, craftable = tonumber(craftable) }
+                local craft = { name = name, craftable = tonumber(craftable),
+                    ask = tonumber((parts[3] or ""):match("^output ask (%d+)$")) }
+                for k = 5, n do
+                    local made, per = trim(parts[k]):match("^makes (.+) x(%d+)$")
+                    if made then craft.makes, craft.yield = made, tonumber(per) end
+                end
+                info.crafts[name:lower()] = craft
             end
         elseif n >= 9 and parts[n - 7]:match("^%d+$") then
             local name = trim(table.concat(parts, " | ", 1, n - 8))
@@ -1210,20 +1220,36 @@ local function parsePlan(reply, report)
                 else
                     if craft.craftable > 0 then amount = min(amount, craft.craftable) end
                     steps[#steps + 1] = { action = "Craft", name = craft.name, qty = amount }
-                    crafted[key] = craft.name
+                    local made = { name = craft.makes or craft.name, qty = amount * (craft.yield or 1),
+                        price = craft.ask and craft.ask > 1 and craft.ask - 1 or craft.ask, step = #steps }
+                    crafted[key] = made
+                    if craft.makes then crafted[craft.makes:lower()] = made end
                 end
             elseif not item and not crafted[key] then skip(parts[2], "not in your scan")
             elseif amount < 1 then skip(parts[2], "no amount to sell")
-            elseif item and item.available < 1 then skip(item.name, "kept for your professions")
+            elseif item and item.available < 1 and not crafted[key] then skip(item.name, "kept for your professions")
             else
-                if item then amount = min(amount, item.available) end
-                local step = { action = SELL_WORDS[action], name = item and item.name or crafted[key], qty = amount }
+                local made = crafted[key]
+                -- Something you are about to craft sells what the craft makes, even if a few are in your bags already.
+                if made then amount = min(amount, made.qty) elseif item then amount = min(amount, item.available) end
+                local step = { action = SELL_WORDS[action], name = made and made.name or item.name, qty = amount }
+                if made then made.sold = true end
                 if action == "auction" then
-                    step.price = (parts[4] and copper(parts[4])) or (item and item.ask)
+                    step.price = (parts[4] and copper(parts[4])) or (made and made.price) or (item and item.ask)
                 end
                 if action == "auction" and (step.price or 0) < 1 then skip(step.name, "no auction price")
                 else steps[#steps + 1] = step end
             end
+        end
+    end
+    -- A Craft step with nothing selling what it makes gets that Auction step, at the scanned price.
+    local added = 0
+    for _, made in pairs(crafted) do
+        if not made.sold and made.price and made.price > 0 and made.qty > 0 then
+            made.sold = true
+            table.insert(steps, made.step + 1 + added, { action = "Auction", name = made.name, qty = made.qty,
+                price = made.price, note = "from the craft above" })
+            added = added + 1
         end
     end
     return steps, skipped

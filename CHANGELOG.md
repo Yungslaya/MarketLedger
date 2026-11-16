@@ -2,6 +2,15 @@
 
 Every released version, newest first.
 
+## 1.3.4 (2026-11-16)
+
+- **Sell what you craft without scanning again.** The AI Help report now says what each recipe makes, like Smelt Iron making Iron Bar, along with the price your scan found for it.
+- A plan can sell the crafted item right away: after the Craft step, an Auction step for the bars or stones gets a **Prepare** button as soon as they are in your bags, with the price already filled in.
+- If the AI forgets to add that sell step, Market Ledger adds it for you, at the scanned price.
+- The optional Companion app reads plans the same way.
+
+Type `/reload` after updating. Get a fresh plan from AI Help to use this.
+
 ## 1.3.3 (2026-11-15)
 
 - Fake listings are ignored. If the cheapest listing is more than 10 times the usual price (like Fish Oil at 100 gold), Market Ledger treats the price as unknown instead of telling you to list there.
@@ -19,25 +28,44 @@ Type `/reload` after updating.
 
 ## 1.3.1 (2026-11-14)
 
-
-- Scans move on as results arrive, match item variants more reliably, and report incomplete results clearly.
-- Busy scans preserve their place. Click **Scan Bags** to resume a paused scan.
-- New **Debug** button for recent scan and selling events.
-- Advice exports compare vendor value with an optional TSM minimum-buyout reference after the estimated auction cut. They also show the minimum ask needed to beat the vendor. Cached references stay separate from live scan prices; deposits are excluded.
-- Advice instructions ask for an actual comparison and put PLAN steps in one easy-to-copy code block.
-- Expanded [setup guide](https://github.com/Yungslaya/MarketLedger#readme) for every tab, TSM, AI plans, the Companion and farm routes.
-
-#### Try it
-
-1. Type `/reload`. Open the Auction House, then `/ledger`, and click **Scan Bags**.
-2. Optional: enable the Forever-compatible [TradeSkillMaster](https://www.tradeskillmaster.com/) addons and configure its desktop app for your realm. Available price/sales context is read automatically. Stop other active auction scans or click TSM's **WoW UI** if the AH remains busy.
-3. Use **AI Help → Copy for AI**, paste into your preferred chat, then return the PLAN through **Paste reply → Save plan**. No API key or extra app is needed for this route. Review each sale before clicking.
-4. With [ProfessionPal](https://github.com/Yungslaya/ProfessionPal), use **Farm → Map**. Add [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) for travel routes. **Next** skips a spot; **Clear** or **Stop route** ends guidance.
-
-Prices are asking prices or labeled references, not guaranteed sales. Map spots are possible spawns. You still sell, craft, travel and gather yourself.
-
-The optional Companion is included below as `MarketLedgerCompanion.pyw`. Close it before updating, then reopen it. [Companion instructions](https://github.com/Yungslaya/MarketLedger/tree/main/Companion).
-
+
+
+- Scans move on as results arrive, match item variants more reliably, and report incomplete results clearly.
+
+- Busy scans preserve their place. Click **Scan Bags** to resume a paused scan.
+
+- New **Debug** button for recent scan and selling events.
+
+- Advice exports compare vendor value with an optional TSM minimum-buyout reference after the estimated auction cut. They also show the minimum ask needed to beat the vendor. Cached references stay separate from live scan prices; deposits are excluded.
+
+- Advice instructions ask for an actual comparison and put PLAN steps in one easy-to-copy code block.
+
+- Expanded [setup guide](https://github.com/Yungslaya/MarketLedger#readme) for every tab, TSM, AI plans, the Companion and farm routes.
+
+
+
+#### Try it
+
+
+
+1. Type `/reload`. Open the Auction House, then `/ledger`, and click **Scan Bags**.
+
+2. Optional: enable the Forever-compatible [TradeSkillMaster](https://www.tradeskillmaster.com/) addons and configure its desktop app for your realm. Available price/sales context is read automatically. Stop other active auction scans or click TSM's **WoW UI** if the AH remains busy.
+
+3. Use **AI Help → Copy for AI**, paste into your preferred chat, then return the PLAN through **Paste reply → Save plan**. No API key or extra app is needed for this route. Review each sale before clicking.
+
+4. With [ProfessionPal](https://github.com/Yungslaya/ProfessionPal), use **Farm → Map**. Add [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) for travel routes. **Next** skips a spot; **Clear** or **Stop route** ends guidance.
+
+
+
+Prices are asking prices or labeled references, not guaranteed sales. Map spots are possible spawns. You still sell, craft, travel and gather yourself.
+
+
+
+The optional Companion is included below as `MarketLedgerCompanion.pyw`. Close it before updating, then reopen it. [Companion instructions](https://github.com/Yungslaya/MarketLedger/tree/main/Companion).
+
+
+
 Thanks to the **TradeSkillMaster team**, **cjber and the Shortest Path Forever contributors**, and **Wowhead's database contributors** for their tools, APIs and location data. See [credits and links](https://github.com/Yungslaya/MarketLedger#credits).
 
 ## 1.3.0 (2026-11-14)

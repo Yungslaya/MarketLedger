@@ -4,10 +4,11 @@ See what to auction, vendor, craft, keep or farm in WoW: Forever. Open `/ledger`
 
 [Download](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedger.zip) · [Latest changes](https://github.com/Yungslaya/MarketLedger/releases/latest)
 
-Also on CurseForge. Version 1.3.3 · for WoW: Forever (interface 16001)
+Also on CurseForge. Version 1.3.4 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.3.4:** Plans can sell what you craft, like Iron Bars, at the scanned price without scanning again. Type `/reload` after updating.
 - **1.3.3:** Fake listings (like Fish Oil at 100 gold) are ignored instead of treated as the price. Type `/reload` after updating.
 - **1.3.2:** Small fixes to two in-game messages. Type `/reload` after updating.
 - **1.3.1:** Faster scans that wait when the Auction House is busy. A **Debug** button. The AI Help report compares vendor and auction prices for you.
