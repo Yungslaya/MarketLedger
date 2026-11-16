@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.3.6 (2026-11-16)
+
+- **Update notices.** If someone in your guild or group has a newer version, you get one message saying an update is out in the CurseForge app. Only version numbers are shared, and nothing is sent in combat.
+
+Fully restart WoW after updating (a new file was added).
+
 ## 1.3.5 (2026-11-16)
 
 - **Sell, craft or smelt: checked every scan.** Every recipe you know that uses something in your bags is now compared with selling the materials, for every profession: smelting ore, potions from herbs, cloth, leather and more.
