@@ -2,6 +2,13 @@
 
 Every released version, newest first.
 
+## 1.4.0 (2026-11-17)
+
+- **Price fix.** Items sold in stacks (like Upper Map Fragment) were shown far too cheap, so Market Ledger could tell you to vendor something worth silver. Run **Scan Bags** again after updating to replace the wrong prices.
+- **Live price on Prepare.** When you click Prepare, Market Ledger checks the lowest price other players are asking right now and fills the sell form with it, so an older scan no longer makes you undercut or overprice. Your own listings are skipped. If the live price is less than half your scan price, the scan price is kept and you get a warning to check first.
+
+Type `/reload` after updating.
+
 ## 1.3.9 (2026-11-17)
 
 - **Auction House fixes.** After you post a whole stack, the game's sell form could still point at the empty bag slot and show errors ("GetAvailablePostCount" or "GetCurrentItemLevel") on the next Prepare or scan. Market Ledger now clears that leftover first.

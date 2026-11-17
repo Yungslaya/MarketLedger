@@ -263,7 +263,7 @@ ML.ClearStaleSellItem = clearStaleSellItem
 
 -- Step 1 of an auction: put the item, amount and price into WoW's own sell form.
 -- Step 2 (a second click) presses WoW's Create Auction button. Nothing is posted without that click.
-local function prepare(row)
+local function prepareListing(row)
     clearPrepared()
     prepareRequest = prepareRequest + 1
     local request = prepareRequest
@@ -369,7 +369,7 @@ local function prepare(row)
             labelRows(row.link, row.button)
             submitPrepared = function() post(sell, field) end
         end
-        setStatus("Review quantity, price and deposit before posting.")
+        setStatus((row.liveNote and (row.liveNote .. " ") or "") .. "Review quantity, price and deposit before posting.")
         return true
     end
 
@@ -380,6 +380,105 @@ local function prepare(row)
             end
         end)
     end
+end
+
+-- ---------- live price on Prepare ----------
+-- A scan can be minutes old. Before filling the sell form, Prepare asks the Auction House for this
+-- one item again and uses the lowest price other players are asking right now (your own listings
+-- are skipped). If the answer is missing or looks wrong, the scan price is used and you are told.
+
+local LIVE_WAIT = 4        -- seconds to wait for the fresh search
+local LIVE_FLOOR = 0.5     -- a live price under half the scan price is not trusted on its own
+
+local livePending          -- { row, signature, itemID, scanPrice }
+
+-- Lowest price per item among other players' listings in a search result, or nil.
+local function lowestOtherAsk(event, resultKey)
+    local best
+    if event == "COMMODITY_SEARCH_RESULTS_UPDATED" then
+        local count = read(ah.GetNumCommoditySearchResults, resultKey)
+        for i = 1, (type(count) == "number" and count or 0) do
+            local row = read(ah.GetCommoditySearchResultInfo, resultKey, i)
+            local value, quantity = row and row.unitPrice, row and row.quantity or 0
+            local own = row and row.numOwnerItems or 0
+            if type(value) == "number" and value > 0 and own < quantity then best = min(best or value, value) end
+        end
+    else
+        local count = read(ah.GetNumItemSearchResults, resultKey)
+        for i = 1, (type(count) == "number" and count or 0) do
+            local row = read(ah.GetItemSearchResultInfo, resultKey, i)
+            local value = row and row.buyoutAmount
+            if type(value) == "number" and value > 0 and not row.containsOwnerItem then best = min(best or value, value) end
+        end
+    end
+    return best and floor(best)
+end
+
+-- Puts the live price on the row (and on screen) before the sell form is filled.
+local function applyLive(row, live, scanPrice)
+    row.liveNote = nil
+    if not live then
+        row.liveNote = "No other listings right now; using your scan price."
+    elseif scanPrice and live < scanPrice * LIVE_FLOOR then
+        row.liveNote = ("Lowest is now %s, far under your scan (%s). Kept the scan price; check before posting.")
+            :format(money(live), money(scanPrice))
+    else
+        if live ~= scanPrice then
+            row.liveNote = ("Live lowest price: %s (scan was %s)."):format(money(live), money(scanPrice))
+        end
+        row.listed, row.net = live, floor(live * 0.95)
+        if row.signature then
+            savedPrices()[row.signature] = live
+            priceTimes()[row.signature] = now()
+        end
+        for _, card in ipairs(panel.cards) do
+            if card.entry == row then card.auction:SetText(money(row.plan and row.listed or row.net)) end
+        end
+    end
+    trace(("Live price for %s: %s (scan %s)"):format(tostring(row.title), tostring(live), tostring(scanPrice)))
+end
+
+-- Called for every search result while a live check is waiting. Returns true when it was ours.
+function ML.LiveResults(event, resultKey)
+    local wait = livePending
+    if not wait or (issecretvalue and issecretvalue(resultKey)) then return end
+    if event == "COMMODITY_SEARCH_RESULTS_UPDATED" then
+        if resultKey ~= wait.itemID then return end
+    elseif type(resultKey) ~= "table" or itemSignature(resultKey) ~= wait.signature then
+        return
+    end
+    livePending = nil
+    applyLive(wait.row, lowestOtherAsk(event, resultKey), wait.scanPrice)
+    prepareListing(wait.row)
+    return true
+end
+
+local function prepare(row)
+    row.liveNote = nil
+    local key = (type(row.link) == "string" and read(ah and ah.GetItemKeyFromItemLink, row.link))
+    local signature = key and itemSignature(key)
+    local busy = ML.ScanRunning and ML.ScanRunning()
+    if not signature or busy or not open or ML:InCombat() or not ah.SendSearchQuery
+        or read(ah.IsThrottledMessageSystemReady) == false then
+        if busy then row.liveNote = "Scan running; using your scan price." end
+        return prepareListing(row)
+    end
+    local wait = { row = row, signature = signature, itemID = key.itemID, scanPrice = row.listed }
+    livePending = wait
+    setStatus("Checking the current lowest price...")
+    local ok, accepted = pcall(ah.SendSearchQuery, key, {}, true)
+    if not ok or (not (issecretvalue and issecretvalue(accepted)) and accepted == false) then
+        livePending = nil
+        row.liveNote = "Couldn't check the live price; using your scan price."
+        return prepareListing(row)
+    end
+    C_Timer.After(LIVE_WAIT, function()
+        if livePending ~= wait then return end
+        livePending = nil
+        trace("Live price timeout for " .. tostring(row.title))
+        row.liveNote = "The Auction House didn't answer; using your scan price."
+        prepareListing(row)
+    end)
 end
 
 -- One click sells one stack. A stack bigger than the plan is split first, then sold on the next click.
@@ -1545,6 +1644,7 @@ end
 -- Searches the Auction House for one item at a time and saves the lowest unit price.
 
 local queue, index, current
+function ML.ScanRunning() return queue ~= nil end
 local generation = 0   -- bumps when a scan starts or the Auction House closes, so late timers do nothing
 local scanMoved = 0    -- when the running scan last made progress
 ML.SCAN_STALL = 15      -- seconds without progress before Scan Bags may start over
@@ -1737,8 +1837,9 @@ local function receive(event, resultKey)
         for i = 1, count do
             local row = read(ah.GetItemSearchResultInfo, resultKey, i)
             local value = row and row.buyoutAmount
+            -- buyoutAmount is already the price of one item (what the Buyout column shows).
+            -- Dividing it by the listing's quantity made stacked items look almost free.
             if type(value) == "number" and value > 0 then
-                value = value / max(1, row.quantity or 1)
                 best = min(best or value, value)
             end
         end
@@ -1900,6 +2001,7 @@ events:SetScript("OnEvent", function(_, event, key, action)
             incompleteScan("WoW blocked Market Ledger's Auction House search.")
         end
     elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "ITEM_SEARCH_RESULTS_UPDATED" then
+        if not current and ML.LiveResults(event, key) then return end
         receive(event, key)
     elseif event == "MERCHANT_SHOW" or event == "MERCHANT_CLOSED" then
         merchant = event == "MERCHANT_SHOW"
