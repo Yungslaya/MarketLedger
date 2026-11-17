@@ -251,6 +251,16 @@ local function findAuctionStack(link)
     return foundBag, foundSlot, foundItem, foundLocation
 end
 
+-- How many of this item you could put up, across all your eligible bag stacks.
+local function countAuctionable(link)
+    local total = 0
+    eachBagItem(function(bag, slot, item)
+        if item.hyperlink ~= link or item.isBound or item.isLocked or isQuestItem(bag, slot) then return end
+        total = total + (item.stackCount or 0)
+    end)
+    return total
+end
+
 -- WoW's sell forms keep pointing at a bag slot after its whole stack is posted or moved. Any later
 -- Auction House update then makes WoW's own form read the missing item and fail
 -- ("GetAvailablePostCount" / "GetCurrentItemLevel" errors). Clear such a leftover.
@@ -320,7 +330,10 @@ local function prepareListing(row)
         local ok, err = pcall(frame.SetPostItem, frame, location)
         if not ok then trace("SetPostItem failed: " .. tostring(err)) end
     end
+    -- Regular items are one stack per auction. Trade goods (commodities) post from all your stacks at
+    -- once, so their amount is your whole plan, not just the first stack (that capped posts at 20).
     local quantity = min(row.qty, item.stackCount)
+    local function commodityAmount() return min(row.qty, max(item.stackCount, countAuctionable(row.link))) end
 
     -- Second click: check the form still says what we set, then press WoW's post button.
     local function post(sell, field)
@@ -365,6 +378,7 @@ local function prepareListing(row)
         if not open or request ~= prepareRequest or ML:InCombat() then return end
         local sell, field = selectedForm()
         if not sell then trace("Sell form has not selected the requested item."); return false end
+        if field == "CommoditiesSellFrame" then quantity = commodityAmount() end
         local ok, err = pcall(function()
             sell.QuantityInput:SetQuantity(quantity)
             sell.PriceInput:SetAmount(row.listed)
@@ -373,6 +387,10 @@ local function prepareListing(row)
         local actualQty = read(sell.GetQuantity, sell) or read(sell.QuantityInput.GetQuantity, sell.QuantityInput)
         local actualPrice = read(sell.PriceInput.GetAmount, sell.PriceInput)
         trace(("%s readback: quantity %s, price %s"):format(field, tostring(actualQty), tostring(actualPrice)))
+        if field == "CommoditiesSellFrame" and type(actualQty) == "number" and actualQty > 0 and actualQty < quantity then
+            trace(("Sell form takes %d at most; listing %d."):format(actualQty, actualQty))
+            quantity = actualQty                                -- the most WoW's form will post at once
+        end
         if actualQty ~= quantity or actualPrice ~= row.listed then return false end
         if sell.PostButton then
             preparedRow = row
@@ -507,27 +525,43 @@ local function prepare(row)
     local key = (type(row.link) == "string" and read(ah and ah.GetItemKeyFromItemLink, row.link))
     local signature = key and itemSignature(key)
     local busy = ML.ScanRunning and ML.ScanRunning()
-    if not signature or busy or not open or ML:InCombat() or not ah.SendSearchQuery
-        or read(ah.IsThrottledMessageSystemReady) == false then
+    local skip = (not signature and "no item key") or (busy and "scan running") or (not open and "Auction House closed")
+        or (ML:InCombat() and "in combat") or (not ah.SendSearchQuery and "search unavailable")
+    if skip then
+        trace("Live price skipped (" .. skip .. ") for " .. tostring(row.title))
         if busy then row.liveNote = "Scan running; using your scan price." end
         return prepareListing(row)
     end
     local wait = { row = row, signature = signature, itemID = key.itemID, scanPrice = row.listed }
     livePending = wait
     setStatus("Checking the current lowest price...")
-    local ok, accepted = pcall(ah.SendSearchQuery, key, {}, true)
-    if not ok or (not (issecretvalue and issecretvalue(accepted)) and accepted == false) then
-        livePending = nil
-        row.liveNote = "Couldn't check the live price; using your scan price."
-        return prepareListing(row)
-    end
-    C_Timer.After(LIVE_WAIT, function()
+    local function fallBack(note, why)
         if livePending ~= wait then return end
         livePending = nil
-        trace("Live price timeout for " .. tostring(row.title))
-        row.liveNote = "The Auction House didn't answer; using your scan price."
+        trace("Live price: " .. why .. " for " .. tostring(row.title))
+        row.liveNote = note
         prepareListing(row)
-    end)
+    end
+    -- Right after a scan or a post the Auction House is briefly busy. Wait for it (up to LIVE_WAIT
+    -- seconds) instead of giving up at once.
+    local function send(tries)
+        if livePending ~= wait then return end
+        if read(ah.IsThrottledMessageSystemReady) == false then
+            if tries * 0.25 >= LIVE_WAIT then
+                return fallBack("The Auction House was busy; using your scan price.", "busy, gave up")
+            end
+            return C_Timer.After(0.25, function() send(tries + 1) end)
+        end
+        local ok, accepted = pcall(ah.SendSearchQuery, key, {}, true)
+        if not ok or (not (issecretvalue and issecretvalue(accepted)) and accepted == false) then
+            return fallBack("Couldn't check the live price; using your scan price.", "search refused")
+        end
+        trace(("Live price search sent for %s%s"):format(tostring(row.title), tries > 0 and (" after " .. tries * 0.25 .. "s wait") or ""))
+        C_Timer.After(LIVE_WAIT, function()
+            fallBack("The Auction House didn't answer; using your scan price.", "no answer")
+        end)
+    end
+    send(0)
 end
 
 -- One click sells one stack. A stack bigger than the plan is split first, then sold on the next click.
@@ -1705,7 +1739,9 @@ local scanStarted = 0
 
 function ML:ShowDebug()
     if not panel then self:Toggle() end
-    local lines = { "Market Ledger scan diagnostics v1",
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
+    local version = meta and read(meta, "MarketLedger", "Version") or "?"
+    local lines = { "Market Ledger scan diagnostics v1 (Market Ledger " .. tostring(version) .. ")",
         "AH open=" .. tostring(checkOpen()) .. " ready=" .. tostring((read(ah and ah.IsThrottledMessageSystemReady))),
         ("Queue=%d/%d answered=%d missed=%d paused=%s"):format(index or 0, queue and #queue or 0,
             answered or 0, missed or 0, tostring(paused)),

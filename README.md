@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.4.3:** Trade goods post your whole amount across stacks (not just 20), and Prepare waits for a busy Auction House before checking the live price. Type `/reload` after updating.
 - **1.4.2:** Prepare undercuts the lowest listing (choose how much next to Scale). Easier-to-read prices. Type `/reload` after updating.
 - **1.4.1:** Prepare ignores a troll listing far above the usual price and keeps your scan price. Type `/reload` after updating.
 - **1.4.0:** Fixes prices for items sold in stacks, and Prepare now uses the live lowest price. Run Scan Bags again after updating. Type `/reload` after updating.

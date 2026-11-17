@@ -2,6 +2,14 @@
 
 Every released version, newest first.
 
+## 1.4.3 (2026-11-17)
+
+- **Sell the whole stack plan at once.** Trade goods (ore, stone, cloth and so on) now post your full amount across all your bag stacks, instead of stopping at 20.
+- **Live price after posting.** Right after a scan or a post the Auction House is busy for a moment. Prepare now waits for it instead of quietly using your scan price, and tells you if it had to.
+- The Debug window now shows which Market Ledger version you have.
+
+Type `/reload` after updating.
+
 ## 1.4.2 (2026-11-17)
 
 - **Undercut on Prepare.** Prepare now lists just under the lowest other listing so yours sells first. The new button next to Scale picks how much: smallest (1 copper for trade goods, 1 silver for other items), 1%, 2%, 5%, or match the lowest. Troll listings are still ignored, and with no other listings your scan price is used.
