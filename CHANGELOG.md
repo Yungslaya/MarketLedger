@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.4.5 (2026-11-17)
+
+- **Reagent bag and quiver.** WoW's sell form only posts trade goods from your normal bags. Prepare now picks a stack from a normal bag first, posts what's there, and tells you how many more are in your reagent bag or quiver so you can move them over and sell them too.
+
+Type `/reload` after updating.
+
 ## 1.4.4 (2026-11-17)
 
 - **Live price on Prepare now works on every item.** On some servers Prepare couldn't look items up and quietly used your scan price instead, so some listings weren't the lowest. It now uses the same lookup as Scan Bags.

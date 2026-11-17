@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.4.5:** Prepare tells you when some of a trade good is in your reagent bag or quiver, which WoW won't post from. Type `/reload` after updating.
 - **1.4.4:** Prepare checks the live lowest price on every item. Type `/reload` after updating.
 - **1.4.3:** Trade goods post your whole amount across stacks (not just 20), and Prepare waits for a busy Auction House before checking the live price. Type `/reload` after updating.
 - **1.4.2:** Prepare undercuts the lowest listing (choose how much next to Scale). Easier-to-read prices. Type `/reload` after updating.

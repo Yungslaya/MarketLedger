@@ -238,27 +238,41 @@ local function clearPrepared()
     preparedRow, submitPrepared = nil, nil
 end
 
--- First bag stack of this item that the Auction House will accept.
+-- The reagent bag, a quiver or ammo pouch, or another profession bag. WoW's sell form doesn't count
+-- what's in these when it posts a trade good across stacks.
+local function specialBag(bag)
+    if bag > (NUM_BAG_SLOTS or 4) then return true end
+    if bag == 0 or not C_Container.GetContainerNumFreeSlots then return false end
+    local ok, _, family = pcall(C_Container.GetContainerNumFreeSlots, bag)
+    return ok and type(family) == "number" and family ~= 0
+end
+
+-- First bag stack of this item that the Auction House will accept, from a normal bag if there is one.
 local function findAuctionStack(link)
     local foundBag, foundSlot, foundItem, foundLocation
-    eachBagItem(function(bag, slot, item)
-        if item.hyperlink ~= link or item.isBound or item.isLocked or isQuestItem(bag, slot) then return end
-        local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
-        if read(ah.IsSellItemValid, location) == false then return end
-        foundBag, foundSlot, foundItem, foundLocation = bag, slot, item, location
-        return true
-    end)
+    for _, wantSpecial in ipairs({ false, true }) do
+        eachBagItem(function(bag, slot, item)
+            if specialBag(bag) ~= wantSpecial then return end
+            if item.hyperlink ~= link or item.isBound or item.isLocked or isQuestItem(bag, slot) then return end
+            local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
+            if read(ah.IsSellItemValid, location) == false then return end
+            foundBag, foundSlot, foundItem, foundLocation = bag, slot, item, location
+            return true
+        end)
+        if foundBag then break end
+    end
     return foundBag, foundSlot, foundItem, foundLocation
 end
 
--- How many of this item you could put up, across all your eligible bag stacks.
+-- How many of this item you could put up: in normal bags, and in special bags (reagent bag, quiver).
 local function countAuctionable(link)
-    local total = 0
+    local normal, special = 0, 0
     eachBagItem(function(bag, slot, item)
         if item.hyperlink ~= link or item.isBound or item.isLocked or isQuestItem(bag, slot) then return end
-        total = total + (item.stackCount or 0)
+        if specialBag(bag) then special = special + (item.stackCount or 0)
+        else normal = normal + (item.stackCount or 0) end
     end)
-    return total
+    return normal, special
 end
 
 -- WoW's sell forms keep pointing at a bag slot after its whole stack is posted or moved. Any later
@@ -334,7 +348,10 @@ local function prepareListing(row)
     -- once, so their amount is your whole plan, not just the first stack (that capped posts at 20).
     local quantity = min(row.qty, item.stackCount)
     local capNote
-    local function commodityAmount() return min(row.qty, max(item.stackCount, countAuctionable(row.link))) end
+    local function commodityAmount()
+        local normal = countAuctionable(row.link)
+        return min(row.qty, max(item.stackCount, normal))
+    end
 
     -- Second click: check the form still says what we set, then press WoW's post button.
     local function post(sell, field)
@@ -382,8 +399,13 @@ local function prepareListing(row)
         if field == "CommoditiesSellFrame" then
             quantity = commodityAmount()
             local wowCount = location and read(ah.GetAvailablePostCount, location)
-            trace(("Trade good: plan %s, in bags %d, WoW says it can post %s"):format(
-                tostring(row.qty), countAuctionable(row.link), tostring(wowCount)))
+            local normal, special = countAuctionable(row.link)
+            trace(("Trade good: plan %s, normal bags %d, reagent bag/quiver %d, WoW says it can post %s"):format(
+                tostring(row.qty), normal, special, tostring(wowCount)))
+            if special > 0 and quantity < row.qty then
+                capNote = ("%d more in your reagent bag or quiver; move them to a normal bag to sell them.")
+                    :format(min(special, row.qty - quantity))
+            end
         end
         local ok, err = pcall(function()
             sell.QuantityInput:SetQuantity(quantity)
