@@ -2,6 +2,13 @@
 
 Every released version, newest first.
 
+## 1.3.9 (2026-11-17)
+
+- **Auction House fixes.** After you post a whole stack, the game's sell form could still point at the empty bag slot and show errors ("GetAvailablePostCount" or "GetCurrentItemLevel") on the next Prepare or scan. Market Ledger now clears that leftover first.
+- **Update messages** now only come from real CurseForge releases, so you never hear about a version that isn't out yet.
+
+Type `/reload` after updating.
+
 ## 1.3.8 (2026-11-17)
 
 - **Prices in ProfessionPal.** With ProfessionPal 1.3.9, the Farm Planner shows the Auction House asking price for the material you pick, once Market Ledger has scanned it. Materials you haven't scanned show "No price data".

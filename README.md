@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.3.9:** Fixes two Auction House errors after posting a whole stack. Type `/reload` after updating.
 - **1.3.8:** ProfessionPal 1.3.9 shows your scanned Auction House prices in its Farm Planner. Run Scan Bags after updating. Type `/reload` after updating.
 
 - **1.3.6:** A message tells you when a newer version is out in the CurseForge app. Fully restart WoW after updating (a new file was added).

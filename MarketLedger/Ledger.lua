@@ -240,6 +240,27 @@ local function findAuctionStack(link)
     return foundBag, foundSlot, foundItem, foundLocation
 end
 
+-- WoW's sell forms keep pointing at a bag slot after its whole stack is posted or moved. Any later
+-- Auction House update then makes WoW's own form read the missing item and fail
+-- ("GetAvailablePostCount" / "GetCurrentItemLevel" errors). Clear such a leftover.
+local function clearStaleSellItem()
+    local frame = AuctionHouseFrame
+    local exists = C_Item and C_Item.DoesItemExist
+    if not (frame and exists) then return end
+    for _, field in ipairs({"CommoditiesSellFrame", "ItemSellFrame"}) do
+        local sell = frame[field]
+        local item = sell and read(sell.GetItem, sell)
+        if item and sell.SetItem then
+            local ok, there = pcall(exists, item)
+            if not (ok and there == true) then
+                pcall(sell.SetItem, sell, nil)
+                trace(field .. ": cleared an item that is no longer in your bags")
+            end
+        end
+    end
+end
+ML.ClearStaleSellItem = clearStaleSellItem
+
 -- Step 1 of an auction: put the item, amount and price into WoW's own sell form.
 -- Step 2 (a second click) presses WoW's Create Auction button. Nothing is posted without that click.
 local function prepare(row)
@@ -254,6 +275,7 @@ local function prepare(row)
         setStatus("Drag this item to the Sell tab.")
         return
     end
+    clearStaleSellItem()
     local bag, slot, item, location = findAuctionStack(row.link)
     if not bag then
         trace("No eligible bag stack matched the recommendation.")
@@ -261,12 +283,20 @@ local function prepare(row)
         return
     end
 
-    -- The sell form (commodity or item) that currently holds our stack.
+    -- The sell form (commodity or item) that currently holds our stack. A form still pointing at a bag
+    -- slot that is empty now (the stack was just posted) does not count: typing a price into it makes
+    -- WoW's own sell form fail ("GetAvailablePostCount" error).
+    local function stillThere(selected)
+        local exists = C_Item and C_Item.DoesItemExist
+        if not exists then return true end
+        local ok, there = pcall(exists, selected)
+        return ok and there == true
+    end
     local function selectedForm()
         for _, field in ipairs({"CommoditiesSellFrame", "ItemSellFrame"}) do
             local sell = frame[field]
             local selected = sell and sell:IsShown() and read(sell.GetItem, sell)
-            if selected then
+            if selected and stillThere(selected) then
                 local ok, selectedBag, selectedSlot = pcall(selected.GetBagAndSlot, selected)
                 if (ok and selectedBag == bag and selectedSlot == slot)
                     or read(C_Item.GetItemLink, selected) == row.link then
@@ -315,6 +345,7 @@ local function prepare(row)
         local posted, err = pcall(button.Click, button)
         trace(posted and ("Create Auction clicked for " .. quantity .. " at " .. row.listed .. " each.")
             or ("Post button error: " .. tostring(err)))
+        if posted and C_Timer then C_Timer.After(0.5, clearStaleSellItem) end
         setStatus(posted and "Check WoW for the auction result." or "Click Create Auction in WoW.")
     end
 
@@ -1617,6 +1648,7 @@ local function advance()
     local run = generation
     setStatus(("Checking prices %d / %d"):format(index, #queue))
     trace(("Search %d/%d %s"):format(index, #queue, request.signature))
+    clearStaleSellItem()
     local ok, accepted = pcall(ah.SendSearchQuery, request.key, {}, true)
     if generation ~= run then return end
     if not ok or (not (issecretvalue and issecretvalue(accepted)) and accepted == false) then
