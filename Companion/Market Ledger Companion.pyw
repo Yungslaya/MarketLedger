@@ -20,7 +20,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 # Same number as the Market Ledger release it ships with.
-VERSION = "1.3.6"
+VERSION = "1.3.8"
 
 # ---------- finding WoW ----------
 

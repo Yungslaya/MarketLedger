@@ -2,9 +2,17 @@
 
 Every released version, newest first.
 
-## 1.3.7
+## 1.3.8 (2026-11-17)
 
-- **Prices in ProfessionPal.** With ProfessionPal 1.3.8.4 or newer, Farm Planner shows an Auction House price estimate for the material you select, once Market Ledger has scanned that material. Materials you haven't scanned show "No price data".
+- **Prices in ProfessionPal.** With ProfessionPal 1.3.9, the Farm Planner shows the Auction House asking price for the material you pick, once Market Ledger has scanned it. Materials you haven't scanned show "No price data".
+- Prices saved before this version show up there after your next **Scan Bags**.
+- **Clear Prices** also clears the prices shown in ProfessionPal.
+
+Type `/reload` after updating.
+
+## 1.3.7 (2026-11-17)
+
+- **Prices in ProfessionPal.** With ProfessionPal 1.3.9 or newer, Farm Planner shows an Auction House price estimate for the material you select, once Market Ledger has scanned that material. Materials you haven't scanned show "No price data".
 - Prices saved before this version show there after your next **Scan Bags**.
 - **Clear Prices** also clears the prices shown in ProfessionPal.
 
