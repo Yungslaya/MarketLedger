@@ -333,6 +333,7 @@ local function prepareListing(row)
     -- Regular items are one stack per auction. Trade goods (commodities) post from all your stacks at
     -- once, so their amount is your whole plan, not just the first stack (that capped posts at 20).
     local quantity = min(row.qty, item.stackCount)
+    local capNote
     local function commodityAmount() return min(row.qty, max(item.stackCount, countAuctionable(row.link))) end
 
     -- Second click: check the form still says what we set, then press WoW's post button.
@@ -378,7 +379,12 @@ local function prepareListing(row)
         if not open or request ~= prepareRequest or ML:InCombat() then return end
         local sell, field = selectedForm()
         if not sell then trace("Sell form has not selected the requested item."); return false end
-        if field == "CommoditiesSellFrame" then quantity = commodityAmount() end
+        if field == "CommoditiesSellFrame" then
+            quantity = commodityAmount()
+            local wowCount = location and read(ah.GetAvailablePostCount, location)
+            trace(("Trade good: plan %s, in bags %d, WoW says it can post %s"):format(
+                tostring(row.qty), countAuctionable(row.link), tostring(wowCount)))
+        end
         local ok, err = pcall(function()
             sell.QuantityInput:SetQuantity(quantity)
             sell.PriceInput:SetAmount(row.listed)
@@ -389,6 +395,8 @@ local function prepareListing(row)
         trace(("%s readback: quantity %s, price %s"):format(field, tostring(actualQty), tostring(actualPrice)))
         if field == "CommoditiesSellFrame" and type(actualQty) == "number" and actualQty > 0 and actualQty < quantity then
             trace(("Sell form takes %d at most; listing %d."):format(actualQty, actualQty))
+            capNote = ("WoW posts %d at a time; Prepare again after for the last %d.")
+                :format(actualQty, quantity - actualQty)
             quantity = actualQty                                -- the most WoW's form will post at once
         end
         if actualQty ~= quantity or actualPrice ~= row.listed then return false end
@@ -398,7 +406,7 @@ local function prepareListing(row)
             labelRows(row.link, row.button)
             submitPrepared = function() post(sell, field) end
         end
-        setStatus((row.liveNote and (row.liveNote .. " ") or "") .. "Review quantity, price and deposit before posting.")
+        setStatus((row.liveNote and (row.liveNote .. " ") or "") .. (capNote or "Review quantity, price and deposit before posting."))
         return true
     end
 
@@ -485,8 +493,8 @@ local function applyLive(row, live, scanPrice, itemID, commodity)
     else
         local price = undercutPrice(live, commodity)
         if live ~= scanPrice or price ~= live then
-            row.liveNote = ("Live lowest price: %s (scan was %s)."):format(money(live), money(scanPrice))
-            if price ~= live then row.liveNote = row.liveNote .. (" Listing at %s."):format(money(price)) end
+            row.liveNote = ("Live lowest price: %s (scan %s)."):format(money(live), money(scanPrice))
+            if price ~= live then row.liveNote = ("Lowest now %s, listing at %s."):format(money(live), money(price)) end
         end
         row.listed, row.net = price, floor(price * 0.95)
         if row.signature then
@@ -522,7 +530,13 @@ local function prepare(row)
     -- so a fallback never reuses an old undercut and repeated clicks can't creep the price down.
     if row.baseListed == nil then row.baseListed, row.baseNet = row.listed, row.net end
     row.listed, row.net = row.baseListed, row.baseNet
-    local key = (type(row.link) == "string" and read(ah and ah.GetItemKeyFromItemLink, row.link))
+    -- The same Auction House key the scan used for this row; else the same lookup the scan does
+    -- (on some servers the link lookup gives nothing and only the item ID works).
+    local key = row.signature and wanted[row.signature]
+    if not key and ah then
+        local id = type(row.link) == "string" and tonumber(row.link:match("item:(%d+)"))
+        key = (type(row.link) == "string" and read(ah.GetItemKeyFromItemLink, row.link)) or (id and read(ah.MakeItemKey, id))
+    end
     local signature = key and itemSignature(key)
     local busy = ML.ScanRunning and ML.ScanRunning()
     local skip = (not signature and "no item key") or (busy and "scan running") or (not open and "Auction House closed")

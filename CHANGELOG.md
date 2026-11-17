@@ -2,6 +2,13 @@
 
 Every released version, newest first.
 
+## 1.4.4 (2026-11-17)
+
+- **Live price on Prepare now works on every item.** On some servers Prepare couldn't look items up and quietly used your scan price instead, so some listings weren't the lowest. It now uses the same lookup as Scan Bags.
+- If WoW's sell form takes fewer than planned (for example 20 of 24), Market Ledger says so: post, then click Prepare again for the rest.
+
+Type `/reload` after updating.
+
 ## 1.4.3 (2026-11-17)
 
 - **Sell the whole stack plan at once.** Trade goods (ore, stone, cloth and so on) now post your full amount across all your bag stacks, instead of stopping at 20.
