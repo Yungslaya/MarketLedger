@@ -2,6 +2,15 @@
 
 Every released version, newest first.
 
+## 1.4.2 (2026-11-17)
+
+- **Undercut on Prepare.** Prepare now lists just under the lowest other listing so yours sells first. The new button next to Scale picks how much: smallest (1 copper for trade goods, 1 silver for other items), 1%, 2%, 5%, or match the lowest. Troll listings are still ignored, and with no other listings your scan price is used.
+- Prices are easier to read: 8s 64c instead of 0g 08s 64c.
+- A Prepare button no longer keeps saying Create Auction after you prepare a different item.
+- Long messages at the top of the window stay inside the window.
+
+Type `/reload` after updating.
+
 ## 1.4.1 (2026-11-17)
 
 - **Prepare ignores troll listings.** If the only other listing is a silly price (way above what the item usually sells for), Prepare keeps your scan price and tells you, instead of filling the sell form with it and saving it as your price.

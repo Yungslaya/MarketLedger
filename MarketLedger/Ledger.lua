@@ -100,9 +100,16 @@ local function itemDetails(link)
     if lookup then return nameAndVendor(pcall(lookup, link)) end
 end
 
+-- 8s 64c, 1g 5s, 50c: only the coins that are there, the same way ProfessionPal writes money.
 local function money(value)
     if value == nil then return "—" end
-    return ("%dg %02ds %02dc"):format(floor(value / 10000), floor(value / 100) % 100, value % 100)
+    value = floor(value)
+    local g, s, c = floor(value / 10000), floor(value / 100) % 100, value % 100
+    local parts = {}
+    if g > 0 then parts[#parts + 1] = g .. "g" end
+    if s > 0 then parts[#parts + 1] = s .. "s" end
+    if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "c" end
+    return table.concat(parts, " ")
 end
 
 local function ago(when)
@@ -215,16 +222,20 @@ local function isPrepared(entry)
         and entry.qty == preparedRow.qty and entry.listed == preparedRow.listed
 end
 
-local function clearPrepared()
-    if preparedRow then preparedRow.button = "Prepare" end
-    preparedRow, submitPrepared = nil, nil
-end
-
 -- Sets the button label on every visible row for this item.
 local function labelRows(link, text)
     for _, card in ipairs(panel.cards) do
         if card.entry and card.entry.link == link then card.button:SetText(text) end
     end
+end
+
+-- Forgets the prepared listing, and puts its row's button back to "Prepare" straight away.
+local function clearPrepared()
+    if preparedRow then
+        preparedRow.button = "Prepare"
+        labelRows(preparedRow.link, "Prepare")
+    end
+    preparedRow, submitPrepared = nil, nil
 end
 
 -- First bag stack of this item that the Auction House will accept.
@@ -393,6 +404,25 @@ local LIVE_CEILING, LIVE_GAP = 10, 5000  -- over 10x the scan price (and 50s mor
 
 local livePending          -- { row, signature, itemID, scanPrice }
 
+-- How far under the lowest other listing Prepare lists. "smallest" is 1 copper for stackable trade goods;
+-- regular items list in whole silver on the Auction House, so theirs is rounded down to a silver.
+local UNDERCUTS = { "match", "smallest", "1", "2", "5" }
+local UNDERCUT_TEXT = { match = "Match lowest", smallest = "Undercut: smallest", ["1"] = "Undercut: 1%",
+    ["2"] = "Undercut: 2%", ["5"] = "Undercut: 5%" }
+local function undercutMode()
+    local mode = ML.db and ML.db.ledgerUndercut
+    return UNDERCUT_TEXT[mode] and mode or "smallest"
+end
+local function undercutPrice(live, commodity)
+    local mode = undercutMode()
+    if mode == "match" then return live end
+    local target = mode == "smallest" and live - 1 or floor(live * (1 - tonumber(mode) / 100))
+    if not commodity then target = floor(target / 100) * 100 end
+    if target < 1 or target >= live then return live end   -- too cheap to go lower: match it
+    return target
+end
+ML.UndercutPrice = undercutPrice
+
 -- Lowest price per item among other players' listings in a search result, or nil.
 local function lowestOtherAsk(event, resultKey)
     local best
@@ -416,7 +446,7 @@ local function lowestOtherAsk(event, resultKey)
 end
 
 -- Puts the live price on the row (and on screen) before the sell form is filled.
-local function applyLive(row, live, scanPrice, itemID)
+local function applyLive(row, live, scanPrice, itemID, commodity)
     row.liveNote = nil
     -- A lone listing far above the usual price (Fish Oil at 100 gold) is not a real price. A scan already
     -- ignores those; Prepare must too, or it would fill the form with it and save it as your price.
@@ -435,10 +465,12 @@ local function applyLive(row, live, scanPrice, itemID)
         row.liveNote = ("Lowest is now %s, far under your scan (%s). Kept the scan price; check before posting.")
             :format(money(live), money(scanPrice))
     else
-        if live ~= scanPrice then
+        local price = undercutPrice(live, commodity)
+        if live ~= scanPrice or price ~= live then
             row.liveNote = ("Live lowest price: %s (scan was %s)."):format(money(live), money(scanPrice))
+            if price ~= live then row.liveNote = row.liveNote .. (" Listing at %s."):format(money(price)) end
         end
-        row.listed, row.net = live, floor(live * 0.95)
+        row.listed, row.net = price, floor(price * 0.95)
         if row.signature then
             savedPrices()[row.signature] = live
             priceTimes()[row.signature] = now()
@@ -460,13 +492,18 @@ function ML.LiveResults(event, resultKey)
         return
     end
     livePending = nil
-    applyLive(wait.row, lowestOtherAsk(event, resultKey), wait.scanPrice, wait.itemID)
+    applyLive(wait.row, lowestOtherAsk(event, resultKey), wait.scanPrice, wait.itemID,
+        event == "COMMODITY_SEARCH_RESULTS_UPDATED")
     prepareListing(wait.row)
     return true
 end
 
 local function prepare(row)
     row.liveNote = nil
+    -- Always start from the row's own price (scan or plan), not one a previous live check put there,
+    -- so a fallback never reuses an old undercut and repeated clicks can't creep the price down.
+    if row.baseListed == nil then row.baseListed, row.baseNet = row.listed, row.net end
+    row.listed, row.net = row.baseListed, row.baseNet
     local key = (type(row.link) == "string" and read(ah and ah.GetItemKeyFromItemLink, row.link))
     local signature = key and itemSignature(key)
     local busy = ML.ScanRunning and ML.ScanRunning()
@@ -1918,6 +1955,25 @@ local function build()
     end)
     scale:SetText(("%.0f%%"):format((ML.db.ledgerScale or 1) * 100))
     scale:SetPoint("TOPRIGHT", -126, -49)
+    local function cutTip(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Prepare price")
+        GameTooltip:AddLine("Click to change how far under the lowest other listing Prepare lists.", 1, 1, 1, true)
+        GameTooltip:AddLine("Smallest: 1 copper under for trade goods, 1 silver under for other items.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end
+    local cut = ML.UIButton(panel, UNDERCUT_TEXT[undercutMode()], 132, 28, function(self)
+        local mode = undercutMode()
+        for i, name in ipairs(UNDERCUTS) do
+            if name == mode then ML.db.ledgerUndercut = UNDERCUTS[i % #UNDERCUTS + 1]; break end
+        end
+        self:SetText(UNDERCUT_TEXT[undercutMode()])
+        cutTip(self)
+    end)
+    cut:SetPoint("TOPRIGHT", -202, -49)
+    cut:HookScript("OnEnter", cutTip)
+    cut:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     ML.UIButton(panel, "Scan Bags", 100, 28, scan):SetPoint("TOPRIGHT", -18, -49)
     ML.UIButton(panel, "AI Help", 94, 24, showGuide):SetPoint("TOPRIGHT", -36, -8)
     ML.UIButton(panel, "Debug", 70, 24, function() ML:ShowDebug() end):SetPoint("TOPRIGHT", -138, -8)
@@ -1933,6 +1989,9 @@ local function build()
 
     panel.status = ML.UIText(panel, 14, ML.C.muted or ML.C.white)
     panel.status:SetPoint("TOPLEFT", 18, -86)
+    panel.status:SetPoint("TOPRIGHT", -18, -86)     -- stays inside the window; a long line ends in "..."
+    panel.status:SetHeight(18)
+    panel.status:SetWordWrap(false)
 
     -- column titles and the scrolling list
     local header = CreateFrame("Frame", nil, panel)
