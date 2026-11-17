@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.4.1 (2026-11-17)
+
+- **Prepare ignores troll listings.** If the only other listing is a silly price (way above what the item usually sells for), Prepare keeps your scan price and tells you, instead of filling the sell form with it and saving it as your price.
+
+Type `/reload` after updating.
+
 ## 1.4.0 (2026-11-17)
 
 - **Price fix.** Items sold in stacks (like Upper Map Fragment) were shown far too cheap, so Market Ledger could tell you to vendor something worth silver. Run **Scan Bags** again after updating to replace the wrong prices.

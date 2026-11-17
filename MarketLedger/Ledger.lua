@@ -389,6 +389,7 @@ end
 
 local LIVE_WAIT = 4        -- seconds to wait for the fresh search
 local LIVE_FLOOR = 0.5     -- a live price under half the scan price is not trusted on its own
+local LIVE_CEILING, LIVE_GAP = 10, 5000  -- over 10x the scan price (and 50s more) is a fake listing, as in a scan
 
 local livePending          -- { row, signature, itemID, scanPrice }
 
@@ -415,10 +416,21 @@ local function lowestOtherAsk(event, resultKey)
 end
 
 -- Puts the live price on the row (and on screen) before the sell form is filled.
-local function applyLive(row, live, scanPrice)
+local function applyLive(row, live, scanPrice, itemID)
     row.liveNote = nil
+    -- A lone listing far above the usual price (Fish Oil at 100 gold) is not a real price. A scan already
+    -- ignores those; Prepare must too, or it would fill the form with it and save it as your price.
+    local usual = live and ML.FakeAsk and ML:FakeAsk(row.signature, itemID, live)
+    if not usual and live and scanPrice then
+        local data = itemID and ML.MarketData and ML:MarketData(itemID)
+        local reference = max(scanPrice, data and type(data.market) == "number" and data.market or 0)
+        if live > reference * LIVE_CEILING and live - reference > LIVE_GAP then usual = reference end
+    end
     if not live then
         row.liveNote = "No other listings right now; using your scan price."
+    elseif usual then
+        row.liveNote = ("Lowest is now %s, far over the usual %s. Looks fake; kept your scan price.")
+            :format(money(live), money(usual))
     elseif scanPrice and live < scanPrice * LIVE_FLOOR then
         row.liveNote = ("Lowest is now %s, far under your scan (%s). Kept the scan price; check before posting.")
             :format(money(live), money(scanPrice))
@@ -448,7 +460,7 @@ function ML.LiveResults(event, resultKey)
         return
     end
     livePending = nil
-    applyLive(wait.row, lowestOtherAsk(event, resultKey), wait.scanPrice)
+    applyLive(wait.row, lowestOtherAsk(event, resultKey), wait.scanPrice, wait.itemID)
     prepareListing(wait.row)
     return true
 end
