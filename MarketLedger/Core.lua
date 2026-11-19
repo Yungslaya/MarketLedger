@@ -71,17 +71,20 @@ if Pal and Pal.UIWindow and Pal.UIButton and Pal.UIText and Pal.Skin then
     end })
 else
     ML.FONT, ML.TITLE_FONT = "Fonts\\ARIALN.TTF", "Fonts\\FRIZQT__.TTF"
+    -- The addon family shares one look: every window is a big WoW tooltip.
     ML.C = {
-        gold = { 0.94, 0.78, 0.47 }, white = { 0.93, 0.94, 0.96 }, green = { 0.45, 0.87, 0.60 },
-        red = { 1.00, 0.25, 0.25 }, orange = { 1.00, 0.55, 0.15 }, gray = { 0.69, 0.74, 0.81 },
-        yellow = { 1.00, 0.86, 0.25 },
+        gold = { 1, 0.820, 0 }, white = { 1, 1, 1 }, green = { 0.250, 0.880, 0.250 },
+        red = { 1, 0.290, 0.240 }, orange = { 1.00, 0.55, 0.15 }, gray = { 0.640, 0.660, 0.740 },
+        yellow = { 0.900, 0.820, 0.120 },
     }
     ML.THEME = {
-        bg = { 0.083, 0.063, 0.045, 0.97 }, band = { 0.148, 0.109, 0.073, 1 },
-        border = { 0.382, 0.286, 0.161, 1 }, inset = { 0.120, 0.093, 0.064, 0.96 },
-        btn = { 0.157, 0.116, 0.077, 1 }, btnHover = { 0.235, 0.175, 0.104, 1 },
-        btnSel = { 0.170, 0.151, 0.102, 1 }, btnBorder = { 0.390, 0.288, 0.157, 1 },
-        selBorder = { 0.750, 0.600, 0.330, 1 },
+        tooltip = true,
+        bg = { 0.030, 0.040, 0.090, 0.94 }, band = { 0.030, 0.040, 0.090, 0 },
+        border = { 0.730, 0.740, 0.780, 1 }, line = { 0.200, 0.230, 0.330, 1 },
+        inset = { 0.070, 0.085, 0.160, 0.92 },
+        btn = { 0.420, 0.070, 0.040, 1 }, btnHover = { 0.580, 0.110, 0.070, 1 },
+        btnSel = { 0.300, 0.050, 0.030, 1 }, btnBorder = { 0.850, 0.710, 0.420, 1 },
+        selBorder = { 1, 0.820, 0, 1 }, btnText = { 1, 0.820, 0 },
     }
     local WHITE = "Interface\\Buttons\\WHITE8X8"
     local C, T = ML.C, ML.THEME
@@ -89,7 +92,14 @@ else
     -- Dark panel with a thin border. bandHeight adds the lighter header strip.
     function ML.Skin(frame, bandHeight, colors)
         colors = colors or {}
-        if frame.SetBackdrop then
+        -- Windows (anything with a header strip) wear the tooltip border from the game.
+        local tip = T.tooltip and bandHeight
+        if tip and frame.SetBackdrop then
+            frame:SetBackdrop({ bgFile = WHITE, edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16,
+                insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            frame:SetBackdropColor(unpack(colors.bg or T.bg))
+            frame:SetBackdropBorderColor(unpack(colors.border or T.border))
+        elseif frame.SetBackdrop then
             frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                 insets = { left = 1, right = 1, top = 1, bottom = 1 } })
             frame:SetBackdropColor(unpack(colors.bg or T.bg))
@@ -99,10 +109,18 @@ else
             local band = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
             band:SetTexture(WHITE)
             band:SetVertexColor(unpack(T.band))
-            band:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
-            band:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -1)
+            local e = tip and 5 or 1
+            band:SetPoint("TOPLEFT", frame, "TOPLEFT", e, -e)
+            band:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -e, -e)
             band:SetHeight(bandHeight)
             frame.band = band
+            local line = frame:CreateTexture(nil, "BACKGROUND", nil, 2)
+            line:SetTexture(WHITE)
+            line:SetVertexColor(unpack(T.line or T.border))
+            line:SetPoint("TOPLEFT", band, "BOTTOMLEFT", 0, 0)
+            line:SetPoint("TOPRIGHT", band, "BOTTOMRIGHT", 0, 0)
+            line:SetHeight(1)
+            frame.bandLine = line
         end
     end
 

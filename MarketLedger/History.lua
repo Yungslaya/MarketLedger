@@ -155,6 +155,32 @@ function ML:ListingReference(link)
     if price and price > 0 then return floor(price), item end
 end
 
+-- What TradeSkillMaster says the materials from disenchanting this item are worth (copper),
+-- or nil: no TSM, an item that cannot be disenchanted, or no prices for the materials.
+-- This is TSM's own estimate from its own tables; Market Ledger adds nothing to it.
+function ML:DisenchantValue(link)
+    local api = tsm()
+    if not api or type(api.ToItemString) ~= "function" or type(link) ~= "string" then return end
+    local ok, item = pcall(api.ToItemString, link)
+    if not ok or (issecretvalue and issecretvalue(item)) or type(item) ~= "string" then return end
+    local worth = value(api, "Destroy", item)
+    if worth and worth > 0 then return floor(worth) end
+end
+
+-- True when this character has learned Disenchant (spell 13262).
+function ML:CanDisenchant()
+    local known = false
+    if IsPlayerSpell then
+        local ok, yes = pcall(IsPlayerSpell, 13262)
+        known = ok and not (issecretvalue and issecretvalue(yes)) and yes == true
+    end
+    if not known and C_SpellBook and C_SpellBook.IsSpellKnown then
+        local ok, yes = pcall(C_SpellBook.IsSpellKnown, 13262)
+        known = ok and not (issecretvalue and issecretvalue(yes)) and yes == true
+    end
+    return known
+end
+
 local cache, CACHE_SECONDS = {}, 60
 
 -- { market = what it usually sells for (copper), saleRate = 0-1 share of listings that sell,

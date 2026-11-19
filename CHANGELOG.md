@@ -2,6 +2,20 @@
 
 Every released version, newest first.
 
+## 1.5.0 (2026-11-18)
+
+- **New look.** Market Ledger now looks like a big WoW tooltip, the same as ProfessionPal, Savings Pal and Battle Buddy.
+- **Deposit shown.** Prepare tells you the deposit and that you get it back if the item sells. Point at a row to see its 24 hour deposit. A row says **Small gain** when one unsold listing would cost more than you gain over vendoring.
+- **Your own rules.** Right-click a row to pick Always keep, Always vendor or Always auction for that item. Clear my rule undoes it. Hide this item is in the same menu.
+- **Prices from TSM or Auctionator.** When your scan has no price for an item, TradeSkillMaster or Auctionator can fill it in, and the row says which one. Your own scan price is never replaced. The **Other prices** button at the top picks Both, TSM, Auctionator or Off. Market Ledger works without either addon.
+- **Price on tooltips.** Point at any item to see your scan price and how old it is. Type `/ledger tooltip` to turn it off.
+- **Disenchant answer.** If you are an enchanter and have TradeSkillMaster, an item says **Disenchant** on the Keep tab when TSM values its materials above both the auction and the vendor price. The number is TSM's estimate. You disenchant it yourself.
+- **Five more languages.** Market Ledger now shows its tabs, buttons, answers and messages in German, French, Spanish, Russian and Simplified Chinese when your game uses that language. Item names come from the game. The report for the AI chat stays in English. Only English has been tested in the game. If something looks wrong in your language, please report it.
+
+Asking prices are not sales.
+
+Type `/reload` after updating.
+
 ## 1.4.5 (2026-11-17)
 
 - **Reagent bag and quiver.** WoW's sell form only posts trade goods from your normal bags. Prepare now picks a stack from a normal bag first, posts what's there, and tells you how many more are in your reagent bag or quiver so you can move them over and sell them too.

@@ -74,6 +74,54 @@ local function itemSignature(key)
     return table.concat({key.itemID, key.itemLevel or 0, key.itemSuffix or 0, key.battlePetSpeciesID or 0}, ":")
 end
 
+-- Market Ledger works by itself. TradeSkillMaster and Auctionator are never needed. When one of
+-- them is installed, it can fill in a price for an item your own scan has no price for, and the
+-- row says where the price came from. Your own scan price is never replaced.
+-- /ledger prices picks which one may do that: both (TSM first), TSM only, Auctionator only, or off.
+local BORROW_ORDER = { "both", "tsm", "auctionator", "off" }
+local BORROW_TEXT = { both = "TSM, then Auctionator", tsm = "TSM only", auctionator = "Auctionator only",
+    off = "off (only your own scans)" }
+local function borrowMode()
+    local mode = ML.db and ML.db.ledgerBorrow
+    return BORROW_TEXT[mode] and mode or "both"
+end
+ML.BorrowMode, ML.BORROW_ORDER, ML.BORROW_TEXT = borrowMode, BORROW_ORDER, BORROW_TEXT
+-- Short words for the button in the window.
+local BORROW_BUTTON = { both = "Other prices: Both", tsm = "Other prices: TSM",
+    auctionator = "Other prices: Auctionator", off = "Other prices: Off" }
+-- Steps to the next choice and returns it.
+local function nextBorrowMode()
+    local mode, nextMode = borrowMode(), BORROW_ORDER[1]
+    for i, name in ipairs(BORROW_ORDER) do
+        if name == mode then nextMode = BORROW_ORDER[i % #BORROW_ORDER + 1] end
+    end
+    ML.db.ledgerBorrow = nextMode
+    return nextMode
+end
+
+local function usable(value)
+    return type(value) == "number" and not (issecretvalue and issecretvalue(value)) and value > 0
+end
+
+-- A price from another addon for an item with no scan price: copper each and who gave it, or nil.
+function ML.BorrowedPrice(link, id)
+    local mode = borrowMode()
+    if mode == "off" then return nil end
+    if (mode == "both" or mode == "tsm") and type(link) == "string" and ML.ListingReference then
+        local ok, reference = pcall(ML.ListingReference, ML, link)
+        if ok and usable(reference) then return floor(reference), "TSM" end
+    end
+    if mode == "both" or mode == "auctionator" then
+        local api = Auctionator and Auctionator.API and Auctionator.API.v1
+        if api then
+            local other = type(link) == "string" and read(api.GetAuctionPriceByItemLink, "MarketLedger", link)
+            if not usable(other) and id then other = read(api.GetAuctionPriceByItemID, "MarketLedger", id) end
+            if usable(other) then return floor(other), "Auctionator" end
+        end
+    end
+    return nil
+end
+
 -- Saved price of an item (link or ID). Returns what you keep after the 5% cut, the listed price,
 -- and the key the price and its history are saved under.
 local function price(link)
@@ -85,7 +133,15 @@ local function price(link)
     if not signature then return end
     wanted[signature] = key
     local listed = savedPrices()[signature]
-    return listed and floor(listed * 0.95), listed, signature
+    local source
+    if not listed then listed, source = ML.BorrowedPrice(link, id) end
+    return listed and floor(listed * 0.95), listed, signature, source
+end
+
+-- Your own answer for an item, set by right-click: item ID -> "keep", "vendor" or "auction".
+local function rules()
+    ML.db.ledgerRules = ML.db.ledgerRules or {}
+    return ML.db.ledgerRules
 end
 
 -- GetItemInfo returns the name first and the vendor price eleventh.
@@ -110,6 +166,15 @@ local function money(value)
     if s > 0 then parts[#parts + 1] = s .. "s" end
     if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "c" end
     return table.concat(parts, " ")
+end
+
+-- What WoW holds back when you list an item: a share of its vendor price that grows with how long the
+-- auction runs, at least 1 copper. You get it back when the item sells and lose it when it doesn't.
+local DEPOSIT_RATE = { [2] = 0.05, [8] = 0.20, [24] = 0.60 }
+function ML.Deposit(vendorEach, qty, hours)
+    if type(vendorEach) ~= "number" or vendorEach <= 0 then return nil end
+    qty = type(qty) == "number" and qty > 0 and qty or 1
+    return max(1, floor(vendorEach * (DEPOSIT_RATE[hours or 24] or DEPOSIT_RATE[24]) * qty))
 end
 
 local function ago(when)
@@ -428,7 +493,14 @@ local function prepareListing(row)
             labelRows(row.link, row.button)
             submitPrepared = function() post(sell, field) end
         end
-        setStatus((row.liveNote and (row.liveNote .. " ") or "") .. (capNote or "Review quantity, price and deposit before posting."))
+        local deposit = read(sell.GetDepositAmount, sell)
+        if type(deposit) ~= "number" or (issecretvalue and issecretvalue(deposit)) or deposit <= 0 then
+            deposit = ML.Deposit(row.vendorEach, quantity)
+        end
+        trace("Deposit: " .. tostring(deposit))
+        setStatus((row.liveNote and (row.liveNote .. " ") or "") .. (capNote
+            or (deposit and ("Deposit " .. money(deposit) .. ", back if it sells. Check, then post.")
+                or "Review quantity, price and deposit before posting.")))
         return true
     end
 
@@ -871,11 +943,11 @@ local function scanBags()
         if not row then
             local name, vendor = itemDetails(item.hyperlink)
             local net, listed
-            local signature
-            if not bound then net, listed, signature = price(item.hyperlink) end
+            local signature, source
+            if not bound then net, listed, signature, source = price(item.hyperlink) end
             row = { id = item.itemID, link = item.hyperlink, key = key, bound = bound, count = 0,
                 name = name, vendor = item.hasNoValue and 0 or vendor, net = net, listed = listed,
-                signature = signature }
+                signature = signature, source = source }
             seen[key] = row
             rows[#rows + 1] = row
         end
@@ -1135,6 +1207,7 @@ local function compute(pct, wantPage)
         end
     end
 
+    local enchanter = ML.CanDisenchant and ML:CanDisenchant()
     local report = { "Market Ledger report v1", "All prices are copper per unit. Listings are asking prices.",
         "Stock limit: " .. pct .. "%",
         "Last completed scan (Unix time): " .. tostring(ML.db.ledgerScanAt or "unknown"), REPORT_COLUMNS }
@@ -1151,6 +1224,19 @@ local function compute(pct, wantPage)
             elseif row.vendor > 0 then action = "Vendor"
             else action = "Keep" end
         end
+        -- Enchanters: when TradeSkillMaster values the disenchant materials above both the auction
+        -- net and the vendor price, say so. Shown on the Keep tab; you disenchant it yourself.
+        local shard
+        if enchanter and qty > 0 then
+            local worth = ML.DisenchantValue and ML:DisenchantValue(row.link)
+            if worth and worth > max(row.net or 0, row.vendor or 0) then
+                action, shard = "Disenchant", worth
+            end
+        end
+        local rule, ruled = rules()[row.id], false
+        if rule == "keep" then action, qty, ruled = "Keep", 0, true
+        elseif rule == "vendor" and qty > 0 and row.vendor and row.vendor > 0 then action, ruled = "Vendor", true
+        elseif rule == "auction" and qty > 0 and not row.bound and row.listed then action, ruled = "Auction", true end
         -- Bound items with no vendor value (Hearthstone, quest tokens) can't be sold: leave them out.
         if not (row.bound and (row.vendor or 0) == 0) then
             report[#report + 1] = table.concat({ row.name or tostring(row.id), row.count, row.offer, used,
@@ -1166,11 +1252,20 @@ local function compute(pct, wantPage)
                 reason = "Only a fake listing (" .. money(fakeAsks()[row.signature].ask) .. ")"
             elseif action == "Check price" then reason = "Price unknown"
             elseif row.offer > 0 and row.vendor == 0 then reason = "No sale value" end
+            -- One unsold listing costs the deposit. When that is more than the whole gain over vendoring, say so.
+            local deposit = action == "Auction" and ML.Deposit(row.vendor, qty) or nil
+            if deposit and reason == "Stock limit" and row.net and (row.net - row.vendor) * qty < deposit then
+                reason = "Small gain"
+            end
+            if row.source and reason == "Stock limit" then reason = row.source .. " price" end
+            if shard then reason = "Disenchant: about " .. money(shard) .. " (TSM)" end
+            if ruled then reason = "Your rule" end
             lines[#lines + 1] = {
                 title = (row.name or row.link:match("%[(.-)%]") or row.link) .. " ×" .. row.count,
                 page = category, id = row.id, name = row.name, action = action .. (qty > 0 and " ×" .. qty or ""),
                 auction = money(row.net), vendor = money(row.vendor), reason = reason,
                 link = row.link, bound = row.bound, qty = qty, listed = row.listed, signature = row.signature,
+                deposit = deposit, vendorEach = row.vendor,
                 button = category == "Auction" and "Prepare" or category == "Vendor" and "Sell" or nil,
             }
         end
@@ -1214,7 +1309,7 @@ local function compute(pct, wantPage)
         for _, line in ipairs(marketLines) do report[#report + 1] = line end
     end
 
-    report[#report + 1] = "Vendor comparisons (copper per item; 5% AH cut; deposits not included):"
+    report[#report + 1] = "Vendor comparisons (copper per item; 5% AH cut; deposits not included. A 24 hour deposit is 60% of the vendor price each, at least 1 copper, returned when the item sells):"
     report[#report + 1] = "TSM DBMinBuyout is a stored realm listing reference; its age is unknown here. It is not a live quote."
     report[#report + 1] = "name | vendor each | ML scan ask | TSM minimum buyout reference | reference net | reference net minus vendor | minimum ask to beat vendor | TSM item key"
     for _, row in ipairs(rows) do
@@ -1224,8 +1319,9 @@ local function compute(pct, wantPage)
             local vendor = row.vendor
             -- Strictly more than vendor, using the same rounded-down net as the ledger.
             local threshold = vendor and math.ceil((vendor + 1) * 100 / 95)
+            -- "ML scan ask" is only ever your own scan; a price filled in by another addon is not one.
             report[#report + 1] = table.concat({ row.name or tostring(row.id), vendor or "unknown",
-                row.listed or "unknown", reference or "unknown", net or "unknown",
+                (not row.source and row.listed) or "unknown", reference or "unknown", net or "unknown",
                 net and vendor and (net - vendor) or "unknown", threshold or "unknown", item or "unknown" }, " | ")
         end
     end
@@ -1239,6 +1335,15 @@ local function compute(pct, wantPage)
         report[#report + 1] = "Ignored fake listings (lowest ask far above the usual price; its scan ask is treated as unknown):"
         report[#report + 1] = "name | ignored ask | usual price"
         for _, line in ipairs(fakeLines) do report[#report + 1] = line end
+    end
+
+    local borrowed = {}
+    for _, row in ipairs(rows) do
+        if row.source then borrowed[#borrowed + 1] = (row.name or tostring(row.id)) .. " (" .. row.source .. ")" end
+    end
+    if #borrowed > 0 then
+        report[#report + 1] = "Asks taken from another addon's saved prices because this scan had none (age unknown):"
+        report[#report + 1] = table.concat(borrowed, ", ")
     end
 
     if wantPage == "Farm" then
@@ -1299,6 +1404,30 @@ local function onRowMouseUp(self, button)
         return
     end
     if not entry.id or entry.page == "Blacklist" or entry.page == "Farm" then return end
+    local function setRule(rule, said)
+        rules()[entry.id] = rule
+        refresh()
+        setStatus(said)
+    end
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(self, function(_, root)
+            root:CreateTitle(entry.name or entry.title)
+            root:CreateButton("Always keep", function() setRule("keep", "Rule saved: always keep.") end)
+            root:CreateButton("Always vendor", function() setRule("vendor", "Rule saved: always vendor.") end)
+            if not entry.bound then
+                root:CreateButton("Always auction", function() setRule("auction", "Rule saved: always auction.") end)
+            end
+            if rules()[entry.id] then
+                root:CreateButton("Clear my rule", function() setRule(nil, "Rule cleared.") end)
+            end
+            root:CreateButton("Hide this item", function()
+                blacklist()[entry.id] = entry.name or entry.title
+                refresh()
+                setStatus("Item blacklisted. Restore it from the Blacklist tab.")
+            end)
+        end)
+        return
+    end
     blacklist()[entry.id] = entry.name or entry.title
     refresh()
     setStatus("Item blacklisted. Restore it from the Blacklist tab.")
@@ -1325,7 +1454,13 @@ local function onRowEnter(self)
         local sales = ML.SalesText(data)
         if data and data.market then GameTooltip:AddLine("TSM sale price " .. money(data.market) .. ".", 0.6, 0.8, 1, true) end
         if sales then GameTooltip:AddLine("TSM: " .. sales .. ".", 0.6, 0.8, 1, true) end
-        if entry.page ~= "Farm" then GameTooltip:AddLine("Right-click to blacklist this item") end
+        if entry.deposit then
+            GameTooltip:AddLine(("Deposit for 24 hours: %s. You get it back if it sells."):format(money(entry.deposit)), 0.8, 0.8, 0.8, true)
+        end
+        if entry.page ~= "Farm" then
+            GameTooltip:AddLine(MenuUtil and MenuUtil.CreateContextMenu and "Right-click: always keep, vendor or auction"
+                or "Right-click to blacklist this item")
+        end
         GameTooltip:Show()
     end
 end
@@ -2049,6 +2184,24 @@ local function build()
     ML.UIButton(panel, "Scan Bags", 100, 28, scan):SetPoint("TOPRIGHT", -18, -49)
     ML.UIButton(panel, "AI Help", 94, 24, showGuide):SetPoint("TOPRIGHT", -36, -8)
     ML.UIButton(panel, "Debug", 70, 24, function() ML:ShowDebug() end):SetPoint("TOPRIGHT", -138, -8)
+    -- Which other addon may fill in a price your own scan does not have. Neither one is needed.
+    local function borrowTip(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Prices from other addons")
+        GameTooltip:AddLine("When your scan has no price for an item, TradeSkillMaster or Auctionator can fill it in. The row says which one.", 1, 1, 1, true)
+        GameTooltip:AddLine("Your own scan price is never replaced. Market Ledger works without either addon.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Now: " .. BORROW_TEXT[borrowMode()], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end
+    panel.borrow = ML.UIButton(panel, BORROW_BUTTON[borrowMode()], 176, 24, function(self)
+        self:SetText(BORROW_BUTTON[nextBorrowMode()])
+        borrowTip(self)
+        refresh()
+    end)
+    panel.borrow:SetPoint("TOPRIGHT", -214, -8)
+    panel.borrow:HookScript("OnEnter", borrowTip)
+    panel.borrow:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     ML.UIButton(panel, "Clear Prices", 96, 25, function()
         if queue then setStatus("Wait for the scan to finish."); return end
         wipe(savedPrices())
@@ -2232,4 +2385,40 @@ end
 SLASH_MARKETLEDGER1 = "/ledger"
 SLASH_MARKETLEDGER2 = "/marketledger"
 SLASH_MARKETLEDGER3 = "/ppauction"   -- the old command, from when this was part of ProfessionPal
-SlashCmdList.MARKETLEDGER = function() ML:Toggle() end
+SlashCmdList.MARKETLEDGER = function(msg)
+    local word = type(msg) == "string" and msg:lower():match("^%s*(%S+)") or ""
+    if word == "prices" and ML.db then
+        local nextMode = nextBorrowMode()
+        ML:Print("Prices from other addons when your scan has none: " .. BORROW_TEXT[nextMode] .. ".")
+        if panel and panel.borrow then panel.borrow:SetText(BORROW_BUTTON[nextMode]) end
+        if panel and panel:IsShown() then refresh() end
+        return
+    end
+    if word == "tooltip" and ML.db then
+        ML.db.ledgerTooltip = ML.db.ledgerTooltip == false
+        ML:Print("Prices on item tooltips: " .. (ML.db.ledgerTooltip and "on." or "off."))
+        return
+    end
+    ML:Toggle()
+end
+
+-- ---------- your scan price on item tooltips ----------
+-- One line under any item you point at: the lowest asking price from your last scan and its age.
+-- Turn it off with /ledger tooltip.
+local function tooltipPrice(tooltip, data)
+    if not ML.db or ML.db.ledgerTooltip == false or ML:InCombat() then return end
+    if tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip then return end
+    local id = type(data) == "table" and data.id
+    if type(id) ~= "number" or (issecretvalue and issecretvalue(id)) then return end
+    local copper, seenAt = ML:PriceForItem(id)
+    if not copper then return end
+    tooltip:AddDoubleLine("Market Ledger", money(copper) .. " each, " .. ago(seenAt), 1, 0.82, 0, 1, 1, 1)
+    return true
+end
+ML.TooltipPrice = tooltipPrice
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType
+    and Enum.TooltipDataType.Item then
+    pcall(TooltipDataProcessor.AddTooltipPostCall, Enum.TooltipDataType.Item, function(tooltip, data)
+        pcall(tooltipPrice, tooltip, data)
+    end)
+end
