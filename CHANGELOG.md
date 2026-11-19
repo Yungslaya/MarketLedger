@@ -2,6 +2,14 @@
 
 Every released version, newest first.
 
+## 1.5.1 (2026-11-18)
+
+- **Prepare follows the real price.** When a plan price was a spike (Iron Bar planned at 6s37 while bars were listing at 3s), Prepare kept the plan price. It now compares a big drop with the item's usual price and lists at the live price.
+- **Spikes in a scan are checked twice.** If a scan answer comes back far over the item's usual price, Market Ledger asks the Auction House again and keeps the lower answer. Craft advice uses the usual price when an output price still looks like a spike.
+- **Correct deposit.** The deposit estimate was about 3 times too high. It is now 20% of the vendor price, as the Auction House charges, and it learns the exact rate from your own postings.
+
+Type `/reload` after updating.
+
 ## 1.5.0 (2026-11-18)
 
 - **New look.** Market Ledger now looks like a big WoW tooltip, the same as ProfessionPal, Savings Pal and Battle Buddy.

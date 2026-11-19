@@ -8,6 +8,8 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.5.1:** Prepare lists at the real price when a plan price was a spike, scans double-check spiked prices, and the deposit estimate is correct (20%). Type `/reload` after updating.
+- **1.5.0:** New look, deposit shown, your own keep/sell rules, prices from TSM or Auctionator, prices on tooltips, disenchant answer, five more languages. Type `/reload` after updating.
 - **1.4.5:** Prepare tells you when some of a trade good is in your reagent bag or quiver, which WoW won't post from. Type `/reload` after updating.
 - **1.4.4:** Prepare checks the live lowest price on every item. Type `/reload` after updating.
 - **1.4.3:** Trade goods post your whole amount across stacks (not just 20), and Prepare waits for a busy Auction House before checking the live price. Type `/reload` after updating.

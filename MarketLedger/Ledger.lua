@@ -122,6 +122,16 @@ function ML.BorrowedPrice(link, id)
     return nil
 end
 
+-- The usual price an ask is checked against for spikes: your usual price before today or TSM's sale
+-- price, the higher of the two (so a real rise is not called a spike). nil when neither is known.
+local SPIKE_TIMES = 1.8
+function ML.SpikeReference(signature, itemID)
+    local usual = ML.UsualPrice and ML:UsualPrice(signature)
+    local data = itemID and ML.MarketData and ML:MarketData(itemID)
+    local market = data and type(data.market) == "number" and data.market > 0 and data.market or nil
+    return usual and market and max(usual, market) or usual or market
+end
+
 -- Saved price of an item (link or ID). Returns what you keep after the 5% cut, the listed price,
 -- and the key the price and its history are saved under.
 local function price(link)
@@ -168,14 +178,25 @@ local function money(value)
     return table.concat(parts, " ")
 end
 
--- What WoW holds back when you list an item: a share of its vendor price that grows with how long the
--- auction runs, at least 1 copper. You get it back when the item sells and lose it when it doesn't.
-local DEPOSIT_RATE = { [2] = 0.05, [8] = 0.20, [24] = 0.60 }
-function ML.Deposit(vendorEach, qty, hours)
+-- What WoW holds back when you list an item: a share of its vendor price, at least 1 copper. You get it
+-- back when the item sells and lose it when it doesn't. Real postings showed 20% at the duration the sell
+-- form uses; each real deposit WoW reports is remembered, so the estimate follows your own postings.
+local DEPOSIT_DEFAULT = 0.20
+local function depositRate()
+    local rate = ML.db and ML.db.ledgerDepositRate
+    return type(rate) == "number" and rate > 0 and rate < 2 and rate or DEPOSIT_DEFAULT
+end
+function ML.Deposit(vendorEach, qty)
     if type(vendorEach) ~= "number" or vendorEach <= 0 then return nil end
     qty = type(qty) == "number" and qty > 0 and qty or 1
-    return max(1, floor(vendorEach * (DEPOSIT_RATE[hours or 24] or DEPOSIT_RATE[24]) * qty))
+    return max(1, floor(vendorEach * depositRate() * qty))
 end
+function ML.LearnDeposit(deposit, vendorEach, qty)
+    if not ML.db or type(deposit) ~= "number" or type(vendorEach) ~= "number" or vendorEach < 20 then return end
+    qty = type(qty) == "number" and qty > 0 and qty or 1
+    ML.db.ledgerDepositRate = floor(deposit / (vendorEach * qty) * 100 + 0.5) / 100
+end
+function ML.DepositPercent() return floor(depositRate() * 100 + 0.5) end
 
 local function ago(when)
     local seconds = max(0, now() - when)
@@ -496,6 +517,8 @@ local function prepareListing(row)
         local deposit = read(sell.GetDepositAmount, sell)
         if type(deposit) ~= "number" or (issecretvalue and issecretvalue(deposit)) or deposit <= 0 then
             deposit = ML.Deposit(row.vendorEach, quantity)
+        else
+            ML.LearnDeposit(deposit, row.vendorEach, quantity)
         end
         trace("Deposit: " .. tostring(deposit))
         setStatus((row.liveNote and (row.liveNote .. " ") or "") .. (capNote
@@ -565,6 +588,18 @@ local function lowestOtherAsk(event, resultKey)
     return best and floor(best)
 end
 
+-- The price a big live drop is measured against: the row's price, or the usual price (TradeSkillMaster)
+-- or the last price you saw when one of those is lower. A plan price copied from a spike (Iron Bar at
+-- 637 when it usually sells near 300) must not block a normal live price.
+local function trustedReference(scanPrice, itemID, signature)
+    local reference = scanPrice
+    local data = itemID and ML.MarketData and ML:MarketData(itemID)
+    if data and type(data.market) == "number" and data.market > 0 then reference = min(reference, data.market) end
+    local saved = signature and savedPrices()[signature]
+    if type(saved) == "number" and saved > 0 then reference = min(reference, saved) end
+    return reference
+end
+
 -- Puts the live price on the row (and on screen) before the sell form is filled.
 local function applyLive(row, live, scanPrice, itemID, commodity)
     row.liveNote = nil
@@ -581,7 +616,7 @@ local function applyLive(row, live, scanPrice, itemID, commodity)
     elseif usual then
         row.liveNote = ("Lowest is now %s, far over the usual %s. Looks fake; kept your scan price.")
             :format(money(live), money(usual))
-    elseif scanPrice and live < scanPrice * LIVE_FLOOR then
+    elseif scanPrice and live < trustedReference(scanPrice, itemID, row.signature) * LIVE_FLOOR then
         row.liveNote = ("Lowest is now %s, far under your scan (%s). Kept the scan price; check before posting.")
             :format(money(live), money(scanPrice))
     else
@@ -1009,7 +1044,14 @@ local function craftOptions(char, carried, market)
         end
         if usesStock and output and type(schematic.quantityMin) == "number" and schematic.quantityMin > 0 then
             -- price() also puts the item on the next scan's list, so ask for every price before giving up.
-            local net, outputPrice = price(output)
+            local net, outputPrice, outputSignature = price(output)
+            -- A crafted item's price far over its usual price is not trusted for the verdict or the plan.
+            local usualOut = outputPrice and ML.SpikeReference(outputSignature, tonumber(tostring(output):match("item:(%d+)")))
+            local spiked
+            if usualOut and outputPrice > usualOut * SPIKE_TIMES then
+                spiked = outputPrice
+                outputPrice, net = usualOut, floor(usualOut * 0.95)
+            end
             local costs, cost = {}, 0
             local valid, priced = true, net ~= nil
             for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
@@ -1030,7 +1072,7 @@ local function craftOptions(char, carried, market)
                 local yield = schematic.quantityMin
                 local gain = priced and (net * yield - cost) or nil
                 crafts[#crafts + 1] = { name = name, costs = costs, gain = gain, cost = cost,
-                    worth = priced and net * yield > cost * 1.2, outputPrice = outputPrice,
+                    worth = priced and net * yield > cost * 1.2, outputPrice = outputPrice, outputSpike = spiked,
                     itemID = tonumber(output:match("item:(%d+)")), profKey = professionKey(id), yield = yield }
             end
         end
@@ -1179,7 +1221,9 @@ local function compute(pct, wantPage)
         elseif craft.gain > 0 then verdict = "verdict: small gain, under 20% over selling the materials"
         else verdict = "verdict: sell the materials, crafting loses money" end
         recipeReport[#recipeReport + 1] = ("%s | craftable %d | output ask %s | extra net per craft %s | %s"):format(
-            craft.name, count, tostring(craft.outputPrice or "unknown"), tostring(craft.gain or "unknown"),
+            craft.name, count, tostring(craft.outputPrice or "unknown")
+                .. (craft.outputSpike and (" (scan ask " .. craft.outputSpike .. " looked like a spike; usual price used)") or ""),
+            tostring(craft.gain or "unknown"),
             table.concat(ingredients, ", "))
             .. (makes and (" | makes " .. makes .. " x" .. (craft.yield or 1)) or "") .. " | " .. verdict
         if not craft.worth then
@@ -1309,7 +1353,7 @@ local function compute(pct, wantPage)
         for _, line in ipairs(marketLines) do report[#report + 1] = line end
     end
 
-    report[#report + 1] = "Vendor comparisons (copper per item; 5% AH cut; deposits not included. A 24 hour deposit is 60% of the vendor price each, at least 1 copper, returned when the item sells):"
+    report[#report + 1] = "Vendor comparisons (copper per item; 5% AH cut; deposits not included. A deposit is about " .. ML.DepositPercent() .. "% of the vendor price each, at least 1 copper, returned when the item sells):"
     report[#report + 1] = "TSM DBMinBuyout is a stored realm listing reference; its age is unknown here. It is not a live quote."
     report[#report + 1] = "name | vendor each | ML scan ask | TSM minimum buyout reference | reference net | reference net minus vendor | minimum ask to beat vendor | TSM item key"
     for _, row in ipairs(rows) do
@@ -1455,7 +1499,7 @@ local function onRowEnter(self)
         if data and data.market then GameTooltip:AddLine("TSM sale price " .. money(data.market) .. ".", 0.6, 0.8, 1, true) end
         if sales then GameTooltip:AddLine("TSM: " .. sales .. ".", 0.6, 0.8, 1, true) end
         if entry.deposit then
-            GameTooltip:AddLine(("Deposit for 24 hours: %s. You get it back if it sells."):format(money(entry.deposit)), 0.8, 0.8, 0.8, true)
+            GameTooltip:AddLine(("Deposit: about %s. You get it back if it sells."):format(money(entry.deposit)), 0.8, 0.8, 0.8, true)
         end
         if entry.page ~= "Farm" then
             GameTooltip:AddLine(MenuUtil and MenuUtil.CreateContextMenu and "Right-click: always keep, vendor or auction"
@@ -1594,7 +1638,7 @@ local function parseReport(report)
             if craftable then
                 local name = trim(parts[1])
                 local craft = { name = name, craftable = tonumber(craftable),
-                    ask = tonumber((parts[3] or ""):match("^output ask (%d+)$")) }
+                    ask = tonumber((parts[3] or ""):match("^output ask (%d+)")) }
                 for k = 5, n do
                     local made, per = trim(parts[k]):match("^makes (.+) x(%d+)$")
                     if made then craft.makes, craft.yield = made, tonumber(per) end
@@ -2100,6 +2144,19 @@ local function receive(event, resultKey)
             end
         end
     end
+    -- A lowest ask far over the usual price can be an incomplete or old answer (Iron Bar came back at
+    -- 638 when bars were listed at 300). Ask once more and keep the lower of the two answers.
+    local usualNow = best and ML.SpikeReference and ML.SpikeReference(current.signature, current.key.itemID)
+    if usualNow and best > usualNow * SPIKE_TIMES and not current.recheck then
+        current.recheck = floor(best)
+        trace(("Spike %s: %d vs usual %d; asking again"):format(current.signature, floor(best), usualNow))
+        local request, run = current, generation
+        C_Timer.After(1, function()
+            if generation == run and current == request then pcall(ah.SendSearchQuery, request.key, {}, true) end
+        end)
+        return
+    end
+    if current.recheck then best = min(best or current.recheck, current.recheck) end
     answered = answered + 1
     trace("Response accepted " .. current.signature .. " price=" .. tostring(best))
     consecutiveMisses = 0
