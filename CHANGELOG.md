@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.5.2 (2026-11-18)
+
+- **Farm picks for your faction.** The Farm tab and the report sent Alliance characters to Horde starting zones (Tirisfal Glades for Peacebloom, Durotar for Silverleaf). With ProfessionPal installed, farm picks now use your faction's zones and never pick the other faction's starting zones.
+
+Type `/reload` after updating.
+
 ## 1.5.1 (2026-11-18)
 
 - **Prepare follows the real price.** When a plan price was a spike (Iron Bar planned at 6s37 while bars were listing at 3s), Prepare kept the plan price. It now compares a big drop with the item's usual price and lists at the live price.

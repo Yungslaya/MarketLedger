@@ -195,6 +195,7 @@ function ML.CraftsFor(...) return Pal and Pal.CraftsFor(...) or 0 end
 function ML:ZoneOptions(def, st) return Pal and Pal:ZoneOptions(def, st) or {} end
 function ML:NodeCount(name, map) return Pal and Pal.NodeCount and Pal:NodeCount(name, map) or 0 end
 function ML:BestZoneRank(item, map) if Pal and Pal.BestZoneRank then return Pal:BestZoneRank(item, map) end end
+function ML:EnemyHome(map) if Pal and Pal.EnemyHome then return Pal:EnemyHome(map) end end
 function ML:GearMats(item) if Pal then return Pal:GearMats(item) end end
 function ML:MatsReady(item) if Pal then return Pal:MatsReady(item) end end
 function ML:CraftGear(item, amount)

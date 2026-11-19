@@ -1110,7 +1110,8 @@ local function farmPicks()
                 for map in pairs(ML.NODES and ML.NODES[item.node] or {}) do
                     local range, count = ML.ZONE_LEVEL[map], ML:NodeCount(item.node, map)
                     local rank = ML:BestZoneRank(item.name, map) or 99
-                    if (not range or range[1] <= level + 3)
+                    -- never the other faction's starting zones (Tirisfal for an Alliance character)
+                    if (not range or range[1] <= level + 3) and not ML:EnemyHome(map)
                         and (rank < bestRank or (rank == bestRank and count > (spots or 0))) then
                         zone, spots, bestRank = zoneNameOf(map), count, rank
                     end
