@@ -444,6 +444,18 @@ local function prepareListing(row)
         local button = sell.PostButton
         local input = sell.QuantityInput and sell.QuantityInput.InputBox
         if input and input:HasFocus() then input:ClearFocus() end
+        -- WoW's own form fills in its own price a moment after an item is set (after its search
+        -- comes back). Same item still selected: put our amount and price back before posting.
+        if open and not ML:InCombat() and selectedForm() == sell and button:IsVisible()
+            and (read(sell.GetQuantity, sell) ~= quantity
+                 or read(sell.PriceInput.GetAmount, sell.PriceInput) ~= row.listed) then
+            pcall(function()
+                sell.QuantityInput:SetQuantity(quantity)
+                sell.PriceInput:SetAmount(row.listed)
+            end)
+            trace(("Sell form reset by WoW; set again to quantity %s, price %s"):format(
+                tostring(read(sell.GetQuantity, sell)), tostring(read(sell.PriceInput.GetAmount, sell.PriceInput))))
+        end
         if not open or ML:InCombat() or selectedForm() ~= sell
             or not button:IsVisible()
             or read(sell.GetQuantity, sell) ~= quantity
@@ -562,6 +574,9 @@ local function undercutPrice(live, commodity)
     local target = mode == "smallest" and live - 1 or floor(live * (1 - tonumber(mode) / 100))
     if not commodity then target = floor(target / 100) * 100 end
     if target < 1 or target >= live then return live end   -- too cheap to go lower: match it
+    -- Regular items list in whole silver. On a cheap item that rounding can cut a lot (2s became 1s,
+    -- half the price): when it would cut more than 10%, match the lowest price instead.
+    if not commodity and live - target > live * 0.1 then return live end
     return target
 end
 ML.UndercutPrice = undercutPrice

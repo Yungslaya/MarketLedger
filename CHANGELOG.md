@@ -2,6 +2,13 @@
 
 Every released version, newest first.
 
+## 1.5.3 (2026-11-20)
+
+- **Cheap gear keeps its price.** Gear can only be listed in whole silver, so undercutting a 2s item dropped it to 1s. When the undercut would cut more than 10%, Market Ledger now matches the lowest price instead.
+- **No more "Sell form changed".** WoW's sell window puts in its own price a few seconds after Prepare. Create Auction now puts your amount and price back and posts.
+
+Type `/reload` after updating.
+
 ## 1.5.2 (2026-11-18)
 
 - **Farm picks for your faction.** The Farm tab and the report sent Alliance characters to Horde starting zones (Tirisfal Glades for Peacebloom, Durotar for Silverleaf). With ProfessionPal installed, farm picks now use your faction's zones and never pick the other faction's starting zones.

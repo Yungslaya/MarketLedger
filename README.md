@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.5.3:** Cheap gear keeps its price, and Create Auction no longer stops with "Sell form changed". Type `/reload` after updating.
 - **1.5.2:** Farm picks use your faction's zones. Type `/reload` after updating.
 - **1.5.1:** Prepare lists at the real price when a plan price was a spike, scans double-check spiked prices, and the deposit estimate is correct (20%). Type `/reload` after updating.
 - **1.5.0:** New look, deposit shown, your own keep/sell rules, prices from TSM or Auctionator, prices on tooltips, disenchant answer, five more languages. Type `/reload` after updating.
