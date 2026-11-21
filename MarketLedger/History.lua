@@ -24,7 +24,7 @@ local TREND_DAYS = 14      -- "usual price" looks this far back
 
 local function book()
     ML.db.ledgerHistory = ML.db.ledgerHistory or {}
-    local key = GetRealmName() .. ":" .. UnitFactionGroup("player")
+    local key = ML.Realm() .. ":" .. UnitFactionGroup("player")
     ML.db.ledgerHistory[key] = ML.db.ledgerHistory[key] or {}
     return ML.db.ledgerHistory[key]
 end

@@ -2,11 +2,12 @@
 ## Title: Market Ledger
 ## Notes: Scan your bags at the Auction House and see what to auction, vendor, craft, keep or farm. Type /ledger
 ## Author: Yungslaya
-## Version: 1.5.4
+## Version: 1.6.0
 ## SavedVariables: MarketLedgerDB
 ## OptionalDeps: ProfessionPal, TradeSkillMaster, Auctionator, ShortestPathForever
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 
+EmporiumTheme.lua
 Core.lua
 Locale.lua
 Locale_deDE.lua

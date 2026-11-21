@@ -2,6 +2,14 @@
 
 Every released version, newest first.
 
+## 1.6.0 (2026-11-21)
+
+- **New look.** The window has a stone frame with gold corners, new fonts and red gold-edged buttons. Our other addons now look the same.
+- **Price history no longer starts over.** The game sometimes gives addons a blank realm name. Market Ledger then saved prices in a new, empty spot, so every item showed "1 day scanned" and no usual price. It now keeps using your realm, and puts back anything saved in the wrong spot.
+- **What's new window.** After an update, one window shows what changed, with a tab for each of our addons you have. Type `/ledger news` to see it again.
+
+Fully restart WoW after updating (new files were added).
+
 ## 1.5.4 (2026-11-20)
 
 - **Books you can learn are kept.** A soulbound pet Grimoire or class book was put on the Vendor tab (a Warlock's Grimoire of Sacrifice, for example). It now shows on the Keep tab with **Learn it**. A book you already know can still go to the vendor, and your own Always vendor rule still wins.

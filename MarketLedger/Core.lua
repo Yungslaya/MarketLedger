@@ -70,11 +70,11 @@ if Pal and Pal.UIWindow and Pal.UIButton and Pal.UIText and Pal.Skin then
         if key == "FONT" or key == "TITLE_FONT" then return Pal[key] end
     end })
 else
-    ML.FONT, ML.TITLE_FONT = "Fonts\\ARIALN.TTF", "Fonts\\FRIZQT__.TTF"
+    ML.FONT, ML.TITLE_FONT = DragbagEmporiumTheme.body, DragbagEmporiumTheme.title
     -- The addon family shares one look: every window is a big WoW tooltip.
     ML.C = {
-        gold = { 1, 0.820, 0 }, white = { 1, 1, 1 }, green = { 0.250, 0.880, 0.250 },
-        red = { 1, 0.290, 0.240 }, orange = { 1.00, 0.55, 0.15 }, gray = { 0.640, 0.660, 0.740 },
+        gold = { 0.85, 0.71, 0.42 }, white = { 0.94, 0.93, 0.90 }, green = { 0.250, 0.880, 0.250 },
+        red = { 1, 0.290, 0.240 }, orange = { 1.00, 0.55, 0.15 }, gray = { 0.71, 0.71, 0.74 },
         yellow = { 0.900, 0.820, 0.120 },
     }
     ML.THEME = {
@@ -90,7 +90,15 @@ else
     local C, T = ML.C, ML.THEME
 
     -- Dark panel with a thin border. bandHeight adds the lighter header strip.
-    function ML.Skin(frame, bandHeight, colors)
+    -- The family look (EmporiumTheme.lua): windows get the ornate frame, boxes become steel cards.
+    function ML.Skin(frame, bandHeight, colors, opts)
+        local E = DragbagEmporiumTheme
+        if E then
+            if bandHeight or opts then return E.Window(frame, bandHeight, opts) end
+            -- buttons: UIButton styles them when built
+            if colors and colors.bg == ML.THEME.btn and frame.IsObjectType and frame:IsObjectType("Button") then return end
+            return E.Card(frame)
+        end
         colors = colors or {}
         -- Windows (anything with a header strip) wear the tooltip border from the game.
         local tip = T.tooltip and bandHeight
@@ -127,7 +135,7 @@ else
     function ML.UIText(parent, size, color, justify)
         local text = parent:CreateFontString(nil, "OVERLAY")
         size = math.max(14, size)
-        text:SetFont(size >= 18 and ML.TITLE_FONT or ML.FONT, size, "")
+        DragbagEmporiumTheme.Font(text, size, size >= 18 and "bold" or "body")   -- the title font is for window titles only
         text:SetShadowOffset(1, -1)
         text:SetShadowColor(0, 0, 0, 1)
         text:SetTextColor(unpack(color or C.white))
@@ -146,14 +154,22 @@ else
         button:SetText(label)
         button.selected = false
         local function paint(self, hover)
+            if DragbagEmporiumTheme then
+                if rawget(self, "emKind") == "tab" then DragbagEmporiumTheme.Select(self, self.selected) end
+                return
+            end
             if not self.SetBackdropColor then return end
             self:SetBackdropColor(unpack(self.selected and T.btnSel or (hover and T.btnHover or T.btn)))
             self:SetBackdropBorderColor(unpack(self.selected and T.selBorder or T.btnBorder))
         end
         button:SetScript("OnEnter", function(self) if self:IsEnabled() then paint(self, true) end end)
         button:SetScript("OnLeave", function(self) paint(self, false) end)
-        function button:SetSelected(on) self.selected = on and true or false; paint(self, false) end
+        function button:SetSelected(on)
+            self.selected = on and true or false
+            if DragbagEmporiumTheme then DragbagEmporiumTheme.Select(self, self.selected) else paint(self, false) end
+        end
         button:SetScript("OnClick", onClick)
+        if DragbagEmporiumTheme then DragbagEmporiumTheme.Button(button, "ruby") end   -- last: SetScript would drop its hooks
         return button
     end
 
@@ -162,12 +178,12 @@ else
         window:SetSize(width, 300)
         window:SetFrameStrata("MEDIUM")
         window:SetClampedToScreen(true)
-        ML.Skin(window, 40)
         window.title = ML.UIText(window, 18, C.gold, "CENTER")
         window.title:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -11)
         window.title:SetText(title)
         local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-        close:SetPoint("TOPRIGHT", window, "TOPRIGHT", -2, -2)
+        close:SetPoint("TOPRIGHT", window, "TOPRIGHT", -10, -8)
+        ML.Skin(window, 40, nil, { title = window.title, close = close })
         window:EnableMouse(true)
         window:SetMovable(true)
         window:RegisterForDrag("LeftButton")
@@ -231,6 +247,116 @@ local function copy(value)
     return out
 end
 
+-- ---------- realm name ----------
+
+-- The game sometimes answers a blank realm name. Prices and price history are saved per realm, so a
+-- blank name made them start over ("1 day scanned" for everything). A blank answer now uses the realm
+-- this character had before.
+local function plainText(fn, ...)
+    if not fn then return end
+    local ok, value = pcall(fn, ...)
+    if ok and not (issecretvalue and issecretvalue(value)) and type(value) == "string" and value ~= "" then return value end
+end
+
+local PER_CHARACTER = { "ledgerStockPlans", "ledgerPlanProgress" }
+local PER_REALM = { "ledgerHistory", "ledgerPrices", "ledgerPriceAt" }
+
+-- The realm this character's saved plans are filed under, else the only realm that has saved prices.
+local function realmFromSaved(db, who)
+    for _, field in ipairs(PER_CHARACTER) do
+        for key in pairs(type(db[field]) == "table" and db[field] or {}) do
+            if type(key) == "string" and #key > #who + 1 and key:sub(1, #who + 1) == who .. "-" then
+                return key:sub(#who + 2)
+            end
+        end
+    end
+    local found
+    for _, field in ipairs(PER_REALM) do
+        for key in pairs(type(db[field]) == "table" and db[field] or {}) do
+            local realm = type(key) == "string" and key:match("^(.+):[^:]+$")
+            if realm then
+                if found and found ~= realm then return nil end
+                found = realm
+            end
+        end
+    end
+    return found
+end
+
+local guessed = {}
+
+-- Never changes saved settings; the name is remembered at login (below).
+function ML.Realm()
+    local name = plainText(GetRealmName)
+    if name then return name end
+    local db, who = ML.db, plainText(UnitName, "player")
+    if type(db) ~= "table" or not who then return "" end
+    local saved = type(db.ledgerRealms) == "table" and db.ledgerRealms[who]
+    if type(saved) == "string" and saved ~= "" then return saved end
+    if guessed[who] == nil then guessed[who] = realmFromSaved(db, who) or false end
+    return guessed[who] or ""
+end
+
+-- Anything saved while the realm name was blank goes back with the rest. The newer price wins.
+local function foldBlankRealm(db, realm, who)
+    local faction = plainText(UnitFactionGroup, "player")
+    local function take(field, blankKey, realKey)
+        local all = db[field]
+        local blank = type(all) == "table" and all[blankKey]
+        if type(blank) ~= "table" then return end
+        all[blankKey] = nil
+        if type(all[realKey]) ~= "table" then all[realKey] = {} end
+        return blank, all[realKey]
+    end
+    if faction then
+        local blankKey, realKey = ":" .. faction, realm .. ":" .. faction
+        local blankAt = take("ledgerPriceAt", blankKey, realKey)
+        local blankPrices, realPrices = take("ledgerPrices", blankKey, realKey)
+        if blankPrices and next(blankPrices) then
+            if type(db.ledgerPriceAt) ~= "table" then db.ledgerPriceAt = {} end
+            if type(db.ledgerPriceAt[realKey]) ~= "table" then db.ledgerPriceAt[realKey] = {} end
+            local realAt = db.ledgerPriceAt[realKey]
+            for signature, price in pairs(blankPrices) do
+                local at, had = blankAt and blankAt[signature], realAt[signature]
+                if realPrices[signature] == nil or type(had) ~= "number" or (type(at) == "number" and at >= had) then
+                    realPrices[signature], realAt[signature] = price, at or had
+                end
+            end
+        end
+        local blankFakes, realFakes = take("ledgerFakeAsks", blankKey, realKey)
+        for signature, fake in pairs(blankFakes or {}) do realFakes[signature] = fake end
+        local blankHistory, realHistory = take("ledgerHistory", blankKey, realKey)
+        for signature, points in pairs(blankHistory or {}) do
+            local byDay, days = {}, {}
+            local function add(list)
+                for _, point in ipairs(type(list) == "table" and list or {}) do
+                    if type(point) == "table" and type(point[1]) == "number" and type(point[2]) == "number" then
+                        if byDay[point[1]] == nil then days[#days + 1] = point[1] end
+                        byDay[point[1]] = point[2]
+                    end
+                end
+            end
+            add(realHistory[signature]); add(points)      -- same day: the blank-realm scan is the later one
+            table.sort(days)
+            local merged = {}
+            for i = math.max(1, #days - 29), #days do merged[#merged + 1] = { days[i], byDay[days[i]] } end
+            realHistory[signature] = merged
+        end
+    end
+    local blankKey, realKey = who .. "-", who .. "-" .. realm
+    local plans = db.ledgerStockPlans
+    if type(plans) == "table" and plans[blankKey] ~= nil then
+        if plans[realKey] == nil then plans[realKey] = plans[blankKey] end
+        plans[blankKey] = nil
+    end
+    local progress = db.ledgerPlanProgress
+    if type(progress) == "table" and type(progress[blankKey]) == "table" then
+        local blank, real = progress[blankKey], progress[realKey]
+        if type(real) ~= "table" or (tonumber(blank.at) or 0) >= (tonumber(real.at) or 0) then progress[realKey] = blank end
+        progress[blankKey] = nil
+    end
+end
+
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:SetScript("OnEvent", function()
@@ -242,5 +368,11 @@ events:SetScript("OnEvent", function()
             if ML.db[key] == nil and old[key] ~= nil then ML.db[key] = copy(old[key]) end
         end
         ML.db.movedFromProfessionPal = true
+    end
+    local realm, who = ML.Realm(), plainText(UnitName, "player")
+    if realm ~= "" and who then
+        if type(ML.db.ledgerRealms) ~= "table" then ML.db.ledgerRealms = {} end
+        ML.db.ledgerRealms[who] = realm
+        foldBlankRealm(ML.db, realm, who)
     end
 end)

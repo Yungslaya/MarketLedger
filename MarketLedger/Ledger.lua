@@ -32,13 +32,13 @@ local function read(fn, ...)
     if ok and not (issecretvalue and issecretvalue(value)) then return value end
 end
 
-local function charKey() return UnitName("player") .. "-" .. GetRealmName() end
+local function charKey() return UnitName("player") .. "-" .. ML.Realm() end
 
 local function clampPercent(value) return max(0, min(100, floor(tonumber(value) or 50))) end
 
 local function savedPrices()
     ML.db.ledgerPrices = ML.db.ledgerPrices or {}
-    local key = GetRealmName() .. ":" .. UnitFactionGroup("player")
+    local key = ML.Realm() .. ":" .. UnitFactionGroup("player")
     ML.db.ledgerPrices[key] = ML.db.ledgerPrices[key] or {}
     return ML.db.ledgerPrices[key]
 end
@@ -46,7 +46,7 @@ end
 -- When each saved price was seen (Unix time), same keys as savedPrices. Filled from 1.3.7 on.
 local function priceTimes()
     ML.db.ledgerPriceAt = ML.db.ledgerPriceAt or {}
-    local key = GetRealmName() .. ":" .. UnitFactionGroup("player")
+    local key = ML.Realm() .. ":" .. UnitFactionGroup("player")
     ML.db.ledgerPriceAt[key] = ML.db.ledgerPriceAt[key] or {}
     return ML.db.ledgerPriceAt[key]
 end
@@ -54,7 +54,7 @@ end
 -- Lowest asks that were thrown out as fake listings: signature -> { ask = copper, usual = copper }.
 local function fakeAsks()
     ML.db.ledgerFakeAsks = ML.db.ledgerFakeAsks or {}
-    local key = GetRealmName() .. ":" .. UnitFactionGroup("player")
+    local key = ML.Realm() .. ":" .. UnitFactionGroup("player")
     ML.db.ledgerFakeAsks[key] = ML.db.ledgerFakeAsks[key] or {}
     return ML.db.ledgerFakeAsks[key]
 end
@@ -1500,7 +1500,8 @@ end
 
 local function ledgerText(parent, size, color)
     local text = ML.UIText(parent, size, color)
-    text:SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, size, "")
+    if DragbagEmporiumTheme then DragbagEmporiumTheme.Font(text, size, "body")   -- the family's body font
+    else text:SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, size, "") end
     text:SetWordWrap(false)
     return text
 end
@@ -1610,7 +1611,7 @@ local function createRow(i)
         if button == "RightButton" and row.entry.page == "Craft" then craftMaterials(row.entry)
         elseif button == "LeftButton" then act(row.entry) end
     end)
-    row.button:GetFontString():SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, 11, "")
+    if not DragbagEmporiumTheme then row.button:GetFontString():SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, 11, "") end
     row.button:SetPoint("RIGHT", -8, 0)
     row.button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     return row
@@ -2394,7 +2395,7 @@ local function build()
     end
     for position, name in ipairs({"Plan", "Auction", "Vendor", "Craft", "Farm", "Keep", "Blacklist"}) do
         local tab = ML.UIButton(panel, name, 68, 25, function() selectTab(name) end)
-        tab:GetFontString():SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, 13, "")
+        if not DragbagEmporiumTheme then tab:GetFontString():SetFont(STANDARD_TEXT_FONT or ML.TITLE_FONT, 13, "") end
         tab:SetPoint("TOPLEFT", 18 + (position - 1) * 72, -106)
         tab:SetSelected(name == page)
         tabs[name] = tab
@@ -2479,7 +2480,7 @@ local function finitePositive(v) return type(v) == "number" and v > 0 and v == v
 -- Reads saved tables without creating them, so a lookup never changes saved settings.
 local function savedFor(field)
     local db = ML.db
-    local realm, faction = GetRealmName and GetRealmName(), UnitFactionGroup and UnitFactionGroup("player")
+    local realm, faction = ML.Realm(), UnitFactionGroup and UnitFactionGroup("player")
     if type(db) ~= "table" or type(realm) ~= "string" or type(faction) ~= "string" then return nil end
     local all = db[field]
     local mine = type(all) == "table" and all[realm .. ":" .. faction]
