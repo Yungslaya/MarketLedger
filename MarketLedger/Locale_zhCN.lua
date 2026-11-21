@@ -23,6 +23,7 @@ ML:AddLocale("zhCN", {
     ["Small gain"] = "收益很小",
     ["Your rule"] = "你的规则",
     ["Tool"] = "工具",
+    ["Learn it"] = "学习",
     ["Recipe unknown"] = "配方未知",
     ["Not in bags"] = "不在背包中",
     ["No materials"] = "没有材料",

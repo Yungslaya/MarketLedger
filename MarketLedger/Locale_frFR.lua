@@ -23,6 +23,7 @@ ML:AddLocale("frFR", {
     ["Small gain"] = "Petit gain",
     ["Your rule"] = "Votre règle",
     ["Tool"] = "Outil",
+    ["Learn it"] = "À apprendre",
     ["Recipe unknown"] = "Recette inconnue",
     ["Not in bags"] = "Pas dans les sacs",
     ["No materials"] = "Pas de matériaux",

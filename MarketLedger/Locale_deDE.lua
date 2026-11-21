@@ -23,6 +23,7 @@ ML:AddLocale("deDE", {
     ["Small gain"] = "Kleiner Gewinn",
     ["Your rule"] = "Deine Regel",
     ["Tool"] = "Werkzeug",
+    ["Learn it"] = "Lernen",
     ["Recipe unknown"] = "Rezept unbekannt",
     ["Not in bags"] = "Nicht in den Taschen",
     ["No materials"] = "Keine Materialien",

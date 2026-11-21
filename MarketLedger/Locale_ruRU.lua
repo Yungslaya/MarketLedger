@@ -23,6 +23,7 @@ ML:AddLocale("ruRU", {
     ["Small gain"] = "Малая выгода",
     ["Your rule"] = "Ваше правило",
     ["Tool"] = "Инструмент",
+    ["Learn it"] = "Изучить",
     ["Recipe unknown"] = "Рецепт неизвестен",
     ["Not in bags"] = "Нет в сумках",
     ["No materials"] = "Нет материалов",

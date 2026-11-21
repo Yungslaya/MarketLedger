@@ -223,6 +223,57 @@ local function isQuestItem(bag, slot)
     return info == true or active == true
 end
 
+-- Books that teach this character something (pet Grimoires, class books, profession manuals) are
+-- for learning, not for the vendor. A soulbound book is yours already; an unbound one counts only
+-- when its tooltip names your class. A book the tooltip says you already know is not kept.
+local RECIPE_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Recipe) or 9
+
+local function classAndSlot(ok, _, _, _, equipLoc, _, classID)
+    if not ok then return end
+    if issecretvalue and (issecretvalue(equipLoc) or issecretvalue(classID)) then return end
+    return classID, equipLoc
+end
+
+-- The left-hand tooltip lines of a bag item, or nil when the game will not show them.
+local function tooltipLines(bag, slot)
+    local data = C_TooltipInfo and read(C_TooltipInfo.GetBagItem, bag, slot)
+    if type(data) ~= "table" or (issecrettable and issecrettable(data)) or type(data.lines) ~= "table" then return end
+    local lines = {}
+    for _, line in ipairs(data.lines) do
+        local text = type(line) == "table" and line.leftText
+        if type(text) == "string" and not (issecretvalue and issecretvalue(text)) then lines[#lines + 1] = text end
+    end
+    return lines
+end
+
+local function canLearn(row)
+    if not row.bag then return false end
+    local lookup = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+    local classID, equipLoc
+    if lookup then classID, equipLoc = classAndSlot(pcall(lookup, row.link)) end
+    -- anything you wear or wield is gear, not a book
+    if type(equipLoc) == "string" and equipLoc ~= "" and equipLoc ~= "INVTYPE_NON_EQUIP_IGNORE" then return false end
+    local book = classID == RECIPE_CLASS
+    local getSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+    local hasUse = getSpell and read(getSpell, row.link) ~= nil
+    -- only books, and soulbound items with a Use, are worth a tooltip read
+    if not book and not (row.bound and hasUse) then return false end
+    local lines = tooltipLines(row.bag, row.slot)
+    -- tooltip hidden: play safe with a book that is already yours
+    if not lines then return book and row.bound end
+    local class = read(UnitClass, "player")
+    local prefix = (type(ITEM_CLASSES_ALLOWED) == "string" and ITEM_CLASSES_ALLOWED or "Classes: %s"):gsub("%%s.*", "")
+    local mine = false
+    for _, text in ipairs(lines) do
+        if text == (ITEM_SPELL_KNOWN or "Already known") then return false end
+        if type(class) == "string" and prefix ~= "" and text:find(prefix, 1, true) == 1 and text:find(class, 1, true) then
+            mine = true
+        end
+    end
+    if row.bound then return book or mine end
+    return book and mine
+end
+
 -- Calls fn(bag, slot, item) for every filled bag slot. Stops early when fn returns true.
 local function eachBagItem(fn)
     for bag = 0, NUM_BAG_SLOTS + (NUM_REAGENTBAG_SLOTS or 0) do
@@ -996,6 +1047,7 @@ local function scanBags()
             local signature, source
             if not bound then net, listed, signature, source = price(item.hyperlink) end
             row = { id = item.itemID, link = item.hyperlink, key = key, bound = bound, count = 0,
+                bag = bag, slot = slot,
                 name = name, vendor = item.hasNoValue and 0 or vendor, net = net, listed = listed,
                 signature = signature, source = source }
             seen[key] = row
@@ -1268,6 +1320,7 @@ local function compute(pct, wantPage)
     end
 
     local enchanter = ML.CanDisenchant and ML:CanDisenchant()
+    local learnNames = {}
     local report = { "Market Ledger report v1", "All prices are copper per unit. Listings are asking prices.",
         "Stock limit: " .. pct .. "%",
         "Last completed scan (Unix time): " .. tostring(ML.db.ledgerScanAt or "unknown"), REPORT_COLUMNS }
@@ -1297,9 +1350,16 @@ local function compute(pct, wantPage)
         if rule == "keep" then action, qty, ruled = "Keep", 0, true
         elseif rule == "vendor" and qty > 0 and row.vendor and row.vendor > 0 then action, ruled = "Vendor", true
         elseif rule == "auction" and qty > 0 and not row.bound and row.listed then action, ruled = "Auction", true end
+        -- A book or Grimoire this character can still learn is kept, never sent to the vendor.
+        -- Your own "Always vendor" rule still wins.
+        local learn = false
+        if not ruled and action == "Vendor" and qty > 0 and canLearn(row) then
+            action, qty, learn = "Keep", 0, true
+            learnNames[#learnNames + 1] = row.name or tostring(row.id)
+        end
         -- Bound items with no vendor value (Hearthstone, quest tokens) can't be sold: leave them out.
         if not (row.bound and (row.vendor or 0) == 0) then
-            report[#report + 1] = table.concat({ row.name or tostring(row.id), row.count, row.offer, used,
+            report[#report + 1] = table.concat({ row.name or tostring(row.id), row.count, learn and 0 or row.offer, used,
                 action, qty, row.vendor or "unknown", row.listed or "unknown", row.net or "unknown" }, " | ")
         end
         local category = (action == "Auction" or action == "Vendor") and action or "Keep"
@@ -1319,6 +1379,7 @@ local function compute(pct, wantPage)
             end
             if row.source and reason == "Stock limit" then reason = row.source .. " price" end
             if shard then reason = "Disenchant: about " .. money(shard) .. " (TSM)" end
+            if learn then reason = "Learn it" end
             if ruled then reason = "Your rule" end
             lines[#lines + 1] = {
                 title = (row.name or row.link:match("%[(.-)%]") or row.link) .. " ×" .. row.count,
@@ -1404,6 +1465,11 @@ local function compute(pct, wantPage)
     if #borrowed > 0 then
         report[#report + 1] = "Asks taken from another addon's saved prices because this scan had none (age unknown):"
         report[#report + 1] = table.concat(borrowed, ", ")
+    end
+
+    if #learnNames > 0 then
+        report[#report + 1] = "Kept to learn (books and Grimoires this character can still use; do not sell or vendor them):"
+        report[#report + 1] = table.concat(learnNames, ", ")
     end
 
     if wantPage == "Farm" then

@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.5.4 (2026-11-20)
+
+- **Books you can learn are kept.** A soulbound pet Grimoire or class book was put on the Vendor tab (a Warlock's Grimoire of Sacrifice, for example). It now shows on the Keep tab with **Learn it**. A book you already know can still go to the vendor, and your own Always vendor rule still wins.
+
+Type `/reload` after updating.
+
 ## 1.5.3 (2026-11-20)
 
 - **Cheap gear keeps its price.** Gear can only be listed in whole silver, so undercutting a 2s item dropped it to 1s. When the undercut would cut more than 10%, Market Ledger now matches the lowest price instead.

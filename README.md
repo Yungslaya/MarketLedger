@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.5.4:** Pet Grimoires and class books you can still learn are kept, not sent to the vendor. Type `/reload` after updating.
 - **1.5.3:** Cheap gear keeps its price, and Create Auction no longer stops with "Sell form changed". Type `/reload` after updating.
 - **1.5.2:** Farm picks use your faction's zones. Type `/reload` after updating.
 - **1.5.1:** Prepare lists at the real price when a plan price was a spike, scans double-check spiked prices, and the deposit estimate is correct (20%). Type `/reload` after updating.
