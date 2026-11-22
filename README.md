@@ -1,10 +1,87 @@
+![Market Ledger](https://raw.githubusercontent.com/Yungslaya/MarketLedger/main/.previews/00-banner.jpg)
+
 # Market Ledger
 
-See what to auction, vendor, craft, keep or farm in WoW: Forever. Open `/ledger` or the **Market Ledger** button in ProfessionPal.
+**[Get it on CurseForge](https://www.curseforge.com/wow/addons/market-ledger)** · [Download the zip](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedger.zip) · [All changes](CHANGELOG.md)
 
-[Download](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedger.zip) · [Latest changes](https://github.com/Yungslaya/MarketLedger/releases/latest)
+**Full bags? Know your next move, then post it in two clicks.**
 
-Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
+Market Ledger scans your bags at the Auction House and tells you what to **auction, vendor, craft, keep or farm**. When you sell, it checks the live lowest price, undercuts it, and fills in WoW's sell form for you. You always click the final Create Auction yourself.
+
+[![Watch the video: four addons with one new look](https://img.youtube.com/vi/2W8BDpfz9jg/maxresdefault.jpg)](https://youtu.be/2W8BDpfz9jg)
+
+**[Watch the video on YouTube](https://youtu.be/2W8BDpfz9jg)**
+
+![Market Ledger checks your bags at the Auction House](https://raw.githubusercontent.com/Yungslaya/MarketLedger/main/.previews/01-ml-scan.jpg)
+
+## What makes it different
+
+- **Two-click selling at the live price.** Click **Prepare** and it checks what other players are asking right now, skips your own listings, and fills the sell form. Click again to post.
+- **Undercut your way.** Smallest, 1%, 2%, 5%, or match the lowest.
+- **Deposit shown.** You see the deposit before you post, and a row says Small gain when one unsold listing would cost more than you gain over vendoring.
+- **Troll listings ignored.** A lone silly price far above the usual one is never used.
+- **Your own rules.** Right-click an item to always keep it, always vendor it or always auction it.
+- **Sell, vendor or craft?** Compares the auction price with the vendor price and with what you could craft or smelt.
+- **Price on tooltips.** Point at any item to see your scan price and how old it is.
+- **Price history that stays.** Your scanned days and usual prices are kept, even when the game is slow to say which realm you are on.
+
+![What to sell, what to vendor and what to keep](https://raw.githubusercontent.com/Yungslaya/MarketLedger/main/.previews/02-ml-plan.jpg)
+
+## How to use it
+
+1. Open the Auction House, type **/ledger**, and click **Scan Bags**.
+2. Review the **Plan**, **Auction**, **Vendor**, **Craft**, **Farm** and **Keep** tabs.
+3. On the Auction tab, click **Prepare** on an item, check the sell form, then click again to post.
+
+## AI Help: a full plan in four steps
+
+Want a smarter plan? **AI Help** walks you through it, one step at a time.
+
+![AI Help walks you through four steps](https://raw.githubusercontent.com/Yungslaya/MarketLedger/main/.previews/03-ml-aihelp.jpg)
+
+1. Click **Scan Bags** at the Auction House.
+2. Click **AI Help**, then **Copy for AI**, and press Ctrl+C.
+3. Paste it into any AI chat you like and copy the reply.
+4. Click **Paste reply**, press Ctrl+V, then **Save plan**. The Plan tab fills in, and rows tick off as you sell.
+
+You pick the chat. Market Ledger itself never connects to an AI service. Check each step before you click it, because AI advice can be wrong.
+
+## New: one look, and a What's new window
+
+Every window now has the same stone frame, gold corners and clean text as our other addons. After an update, one window shows what changed, with a tab for each of our addons you have. Type **/ledger news** to see it again.
+
+![The What's new window](https://raw.githubusercontent.com/Yungslaya/MarketLedger/main/.previews/04-whats-new.jpg)
+
+## Works with other addons, needs none
+
+- **TradeSkillMaster** or **Auctionator**: when your scan has no price for an item, either one can fill it in, and the row says which one. Your own scan price is never replaced. The **Other prices** button picks Both, TSM, Auctionator or Off.
+- **TradeSkillMaster**: enchanters also see a Disenchant answer when TSM values the materials above the auction and vendor price.
+- **[ProfessionPal](https://www.curseforge.com/wow/addons/professionpal)**: keeps the materials your guide needs and shows prices in its Farm Planner.
+
+Market Ledger works by itself.
+
+## Languages
+
+English, German, French, Spanish, Russian and Simplified Chinese. The addon switches by itself to match your game.
+
+Only English has been tested in the game. The other languages are new and may have mistakes or parts still in English. If something looks wrong in your language, please post it in the comments.
+
+## Good to know
+
+Your scan shows **asking prices**, not completed sales. Unknown prices stay unknown. Rescan before relying on an old price. Comparisons assume a 5% auction cut.
+
+- **/ledger** opens Market Ledger.
+- **/ledger news** shows what changed.
+- **/ledger tooltip** turns tooltip prices on or off.
+- **/ledgerdebug** opens scan details when something gets stuck.
+
+## More from Dragbag's Emporium
+
+Four free addons with one shared look. Use one, or all four.
+
+- **[Battle Buddy](https://www.curseforge.com/wow/addons/dbagsalerts)**: your next spell, timers and reminders, for all nine classes.
+- **[ProfessionPal](https://www.curseforge.com/wow/addons/professionpal)**: one clear next step for every profession, and where to farm it.
+- **[Savings Pal](https://www.curseforge.com/wow/addons/drags-hedge-fund)**: sets gold aside for your mount every time you earn.
 
 ## What's new
 
@@ -13,27 +90,23 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 - **1.5.4:** Pet Grimoires and class books you can still learn are kept, not sent to the vendor. Type `/reload` after updating.
 - **1.5.3:** Cheap gear keeps its price, and Create Auction no longer stops with "Sell form changed". Type `/reload` after updating.
 - **1.5.2:** Farm picks use your faction's zones. Type `/reload` after updating.
-- **1.5.1:** Prepare lists at the real price when a plan price was a spike, scans double-check spiked prices, and the deposit estimate is correct (20%). Type `/reload` after updating.
-- **1.5.0:** New look, deposit shown, your own keep/sell rules, prices from TSM or Auctionator, prices on tooltips, disenchant answer, five more languages. Type `/reload` after updating.
-- **1.4.5:** Prepare tells you when some of a trade good is in your reagent bag or quiver, which WoW won't post from. Type `/reload` after updating.
-- **1.4.4:** Prepare checks the live lowest price on every item. Type `/reload` after updating.
-- **1.4.3:** Trade goods post your whole amount across stacks (not just 20), and Prepare waits for a busy Auction House before checking the live price. Type `/reload` after updating.
-- **1.4.2:** Prepare undercuts the lowest listing (choose how much next to Scale). Easier-to-read prices. Type `/reload` after updating.
-- **1.4.1:** Prepare ignores a troll listing far above the usual price and keeps your scan price. Type `/reload` after updating.
-- **1.4.0:** Fixes prices for items sold in stacks, and Prepare now uses the live lowest price. Run Scan Bags again after updating. Type `/reload` after updating.
-- **1.3.9:** Fixes two Auction House errors after posting a whole stack. Type `/reload` after updating.
-- **1.3.8:** ProfessionPal 1.3.9 shows your scanned Auction House prices in its Farm Planner. Run Scan Bags after updating. Type `/reload` after updating.
 
-- **1.3.6:** A message tells you when a newer version is out in the CurseForge app. Fully restart WoW after updating (a new file was added).
-- **1.3.5:** Every scan compares selling your materials with crafting or smelting them, for every profession. Farm picks use the guides' best zones. Type `/reload` after updating.
-- **1.3.4:** Plans can sell what you craft, like Iron Bars, at the scanned price without scanning again. Type `/reload` after updating.
-- **1.3.3:** Fake listings (like Fish Oil at 100 gold) are ignored instead of treated as the price. Type `/reload` after updating.
-- **1.3.2:** Small fixes to two in-game messages. Type `/reload` after updating.
-- **1.3.1:** Faster scans that wait when the Auction House is busy. A **Debug** button. The AI Help report compares vendor and auction prices for you.
+[All changes](CHANGELOG.md)
 
-Used the version built into ProfessionPal? Install this addon and fully restart WoW once. Your saved prices, blacklist and settings move over. [All changes](CHANGELOG.md)
+## Install
 
-## Start here
+1. Easiest: install **Market Ledger** from [CurseForge](https://www.curseforge.com/wow/addons/market-ledger) with the CurseForge app.
+2. WowUp: Get Addons, Install from URL, and paste `https://github.com/Yungslaya/MarketLedger`.
+3. By hand: [download the zip](https://github.com/Yungslaya/MarketLedger/releases/latest/download/MarketLedger.zip), unzip it, and put the `MarketLedger` folder in `World of Warcraft\_forever_\Interface\AddOns`.
+
+Fully restart WoW after installing.
+
+## More details
+
+<details>
+<summary>Open the full guide</summary>
+
+### Start here
 
 1. Install Market Ledger. No other addon is required for bag scanning and selling.
 2. Open the Auction House, then `/ledger`.
@@ -45,7 +118,7 @@ The stock limit belongs to the current plan. Selling half should not keep halvin
 
 Drag the window to move it, drag its bottom-right corner to resize it, and use its percentage button to change scale. **Clear Prices** clears saved scan prices. Prices survive reloads and logouts.
 
-## Use each tab
+### Use each tab
 
 | Tab | What to do |
 | --- | --- |
@@ -59,7 +132,7 @@ Drag the window to move it, drag its bottom-right corner to resize it, and use i
 
 Active quest items, blacklisted items and known profession reserves are protected. Blacklist gear or supplies you personally want to keep. Each sale or craft needs your click.
 
-## Use ChatGPT, Claude or another AI chat
+### Use ChatGPT, Claude or another AI chat
 
 No API key is required for this route.
 
@@ -73,7 +146,7 @@ You can also paste the whole response. Names must match the report, quantities m
 
 The report includes item names, counts, recipes and prices. You choose which chat receives it. The addon itself does not connect to an AI service.
 
-## Add TradeSkillMaster for price context
+### Add TradeSkillMaster for price context
 
 1. Install the WoW: Forever-compatible [TradeSkillMaster addons](https://www.tradeskillmaster.com/) and set up their desktop app for your realm using TSM's instructions.
 2. Let its data update, then start WoW with TSM enabled.
@@ -85,7 +158,7 @@ Vendor comparisons can include TSM's cached realm minimum buyout for the item's 
 
 **AH busy?** Stop another active auction scan, or click **WoW UI** in TSM, then return to Market Ledger. A paused scan resumes with **Scan Bags**. TSM can stay loaded, preserving its price context. Market Ledger does not disable TSM or automatically cancel its work.
 
-## Farm routes with ProfessionPal and Shortest Path Forever
+### Farm routes with ProfessionPal and Shortest Path Forever
 
 1. Install [ProfessionPal](https://github.com/Yungslaya/ProfessionPal). Learn Mining, Herbalism or Skinning for relevant Farm picks.
 2. Optionally install [Shortest Path Forever](https://github.com/cjber/shortest-path-forever). Fully restart WoW after adding addons.
@@ -95,7 +168,7 @@ Vendor comparisons can include TSM's cached realm minimum buyout for the item's 
 
 Spots show possible spawns, not currently available nodes. Consider demand and travel time as well as asking price. Nothing moves or gathers for you.
 
-## Troubleshooting
+### Troubleshooting
 
 - Stop other auction scans before resuming a paused scan.
 - Click **Debug**, copy the report, and describe what you clicked and what happened. It contains scan/selling events, not chat history.
@@ -103,7 +176,7 @@ Spots show possible spawns, not currently available nodes. Consider demand and t
 - For crafting, check materials, selected profession and the required anvil, fire or other station.
 - TSM is optional. Craft/Farm integration needs ProfessionPal; road routing also needs Shortest Path Forever.
 
-## Credits
+### Credits
 
 - Price and sales numbers from [TradeSkillMaster](https://www.tradeskillmaster.com/) when you have it (optional).
 - Road routes by [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) by cjber (optional).
@@ -111,3 +184,5 @@ Spots show possible spawns, not currently available nodes. Consider demand and t
 - Best farming zones from Wowhead's farming guides and Icy Veins' WoW: Forever leveling guides, through ProfessionPal.
 
 None of their code is included.
+
+</details>
