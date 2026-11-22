@@ -155,6 +155,15 @@ function ML:ListingReference(link)
     if price and price > 0 then return floor(price), item end
 end
 
+-- TradeSkillMaster's saved lowest buyout on this realm for an item ID (copper), or nil.
+-- Downloaded by the TSM desktop app, so its age is unknown: never treat it as a live price.
+function ML:MinBuyout(itemID)
+    local api = tsm()
+    if not api or type(itemID) ~= "number" then return end
+    local price = value(api, "DBMinBuyout", "i:" .. itemID)
+    if price and price > 0 then return floor(price) end
+end
+
 -- What TradeSkillMaster says the materials from disenchanting this item are worth (copper),
 -- or nil: no TSM, an item that cannot be disenchanted, or no prices for the materials.
 -- This is TSM's own estimate from its own tables; Market Ledger adds nothing to it.

@@ -2,6 +2,26 @@
 
 Every released version, newest first.
 
+## 1.7.0 (2026-11-22)
+
+- **New Gear tab: cheap upgrades.** At the Auction House, click **Scan Gear**. Market Ledger reads the whole Auction House once and lists the gear that beats what you are wearing, up to a highest price you pick. Each bonus ("of the Bear", "of the Owl") has its own price and is judged by itself.
+- **Judged for your role.** Tank, Damage, Spell damage or Healer. A shield on your arm starts you as Tank. Click **Change** to switch.
+- **One block per slot.** Head, Chest, Legs and the rest each get their own block, with what you wear now at the top.
+- **See what you gain.** Each row shows how much better it is, the price and the top gain. Hover a row for every stat change against your worn piece.
+- **Click a column title to sort.** Better by, Price or Top gain. Click again to flip the order.
+- **Search, don't hunt.** The **Search** button puts the item's name in the Auction House search box. You look and buy yourself.
+- **New Flip tab: buy cheap, resell.** The same full scan finds items listed well under what they usually sell for. Each row shows what to buy, the price to pay, the resell price and the profit after the 5% cut. It needs TradeSkillMaster's sale prices, and it only picks items that sell often.
+- **Check before you buy.** Click **Check** and Market Ledger looks at the live price. **Buy** never pays more than the price it checked. Check also works the profit out again from the live listings and refuses a buy that would no longer make money. Stackable goods (ore, cloth) show the real total first, then you click **Confirm**. Nothing is ever bought on its own.
+- **See your flip profit.** Market Ledger writes down what each flip cost. When you take the money from an "Auction successful" mail, it matches the sale to what you paid. The Flip tab shows what you spent, what came back after the cut, your profit and what is still unsold. Click **Details** for each item.
+- **Flips between scans.** With no full scan in the last 3 hours, the Flip tab uses TradeSkillMaster's saved lowest prices instead, marked **(TSM)**. Their age is unknown, so the live check decides.
+- **Slow flips.** Pricey items that sell now and then, which bots skip. They need a bigger price gap and at least 1g profit, only the cheapest one is bought, and they stay on the list for a day. They show under their own line, marked **(slow)**, and may take a few days to sell.
+- **Buy fast flips right away.** Right after a full scan, a chat line says how many flips were found. Fast flips show first, because they sell out in minutes.
+- **Flips in AI Help.** The report lists the best flips, and the AI can add **Buy** steps to your plan. They show on the Plan tab with the same Check and Buy buttons. The AI is told to plan slow flips and to have you buy fast ones in the Flip tab right away.
+- **Friendlier AI replies.** The AI now starts with a friendly line and gives an estimate of your total profit.
+- The game allows one full scan every 15 minutes, for all addons together.
+
+Fully restart WoW after updating (new files were added).
+
 ## 1.6.1 (2026-11-21)
 
 - **Worn gear in the report.** Copy for AI now adds what your character is wearing: each slot with its item, item level and stats, plus your level and class. The AI can then tell you when a bag item is better than what you have on, so you equip it and don't sell it. Worn gear is never offered for sale.

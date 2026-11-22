@@ -85,6 +85,7 @@ Four free addons with one shared look. Use one, or all four.
 
 ## What's new
 
+- **1.7.0:** New Gear and Flip tabs. One full Auction House scan shows cheap gear that beats what you wear, and cheap items to buy and resell (fast flips and slow ones bots skip), with a live price check before every purchase. AI replies now start friendly and estimate your profit. Fully restart WoW after updating.
 - **1.6.1:** The report for the AI now lists your worn gear, so it can say when a bag item is an upgrade. Type `/reload` after updating.
 - **1.6.0:** New look, price history that no longer starts over when the game gives a blank realm name, and a What's new window after updates. Fully restart WoW after updating.
 - **1.5.4:** Pet Grimoires and class books you can still learn are kept, not sent to the vendor. Type `/reload` after updating.
