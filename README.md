@@ -8,6 +8,7 @@ Also on CurseForge. Version 1.3.7 · for WoW: Forever (interface 16001)
 
 ## What's new
 
+- **1.6.1:** The report for the AI now lists your worn gear, so it can say when a bag item is an upgrade. Type `/reload` after updating.
 - **1.6.0:** New look, price history that no longer starts over when the game gives a blank realm name, and a What's new window after updates. Fully restart WoW after updating.
 - **1.5.4:** Pet Grimoires and class books you can still learn are kept, not sent to the vendor. Type `/reload` after updating.
 - **1.5.3:** Cheap gear keeps its price, and Create Auction no longer stops with "Sell form changed". Type `/reload` after updating.

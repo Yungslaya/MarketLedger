@@ -163,7 +163,9 @@ GUIDANCE = (
     "TSM minimum buyout is a cached reference with unknown age, not a live quote. If the scan ask is unknown, "
     "explain that specific gap and give a conditional recommendation using the reference and minimum ask "
     "to beat vendor. Never silently replace a missing scan price with a regional average. "
-    "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it."
+    "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it. "
+    "Worn gear lines, when present, show what the character has equipped. Never sell or vendor worn gear. "
+    "Use it to say when a bag item is better than what is worn, and say to equip it instead of selling it."
 )
 PLAN_FORMAT = (
     "After your advice, put the complete PLAN in one plain-text code block for easy copying, with no trailing backslashes. "

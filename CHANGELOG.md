@@ -2,6 +2,12 @@
 
 Every released version, newest first.
 
+## 1.6.1 (2026-11-21)
+
+- **Worn gear in the report.** Copy for AI now adds what your character is wearing: each slot with its item, item level and stats, plus your level and class. The AI can then tell you when a bag item is better than what you have on, so you equip it and don't sell it. Worn gear is never offered for sale.
+
+Type `/reload` after updating.
+
 ## 1.6.0 (2026-11-21)
 
 - **New look.** The window has a stone frame with gold corners, new fonts and red gold-edged buttons. Our other addons now look the same.

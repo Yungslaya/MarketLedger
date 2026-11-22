@@ -1230,6 +1230,66 @@ local function farmLines(picks)
     return lines
 end
 
+-- ---------- worn gear (for the report) ----------
+-- What the character has on, so the reader can say if a bag item or an Auction House item is an
+-- upgrade. Read only: nothing worn is ever offered for sale.
+local WORN_SLOTS = {
+    { 1, "Head" }, { 2, "Neck" }, { 3, "Shoulder" }, { 15, "Back" }, { 5, "Chest" }, { 9, "Wrist" },
+    { 10, "Hands" }, { 6, "Waist" }, { 7, "Legs" }, { 8, "Feet" }, { 11, "Ring 1" }, { 12, "Ring 2" },
+    { 13, "Trinket 1" }, { 14, "Trinket 2" }, { 16, "Main hand" }, { 17, "Off hand" }, { 18, "Ranged" },
+}
+
+local function plainOr(value, kind) return type(value) == kind and value or "unknown" end
+
+-- GetItemInfo: name, link, quality, item level, required level, type, subtype (Plate, Mail, Sword...).
+local function wornInfo(ok, name, _, _, itemLevel, minLevel, _, subType)
+    if not ok then return end
+    if issecretvalue and (issecretvalue(name) or issecretvalue(itemLevel) or issecretvalue(minLevel)
+        or issecretvalue(subType)) then return end
+    return name, itemLevel, minLevel, subType
+end
+
+-- "Armor 536, Stamina 15" from the game's own stat table for the item.
+local function wornStats(link)
+    local stats = read((C_Item and C_Item.GetItemStats) or GetItemStats, link)
+    if type(stats) ~= "table" or (issecrettable and issecrettable(stats)) then return "unknown" end
+    local parts = {}
+    for key, amount in pairs(stats) do
+        if type(key) == "string" and type(amount) == "number" and amount ~= 0 then
+            local label = _G[key]
+            if type(label) ~= "string" or label == "" then label = key end
+            parts[#parts + 1] = (amount % 1 == 0 and "%s %d" or "%s %.1f"):format(label, amount)
+        end
+    end
+    table.sort(parts)
+    return #parts > 0 and table.concat(parts, ", ") or "none"
+end
+
+local function wornGearLines()
+    if not GetInventoryItemLink then return {} end
+    local lookup = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    local lines, worn = {}, 0
+    for _, slot in ipairs(WORN_SLOTS) do
+        local link = read(GetInventoryItemLink, "player", slot[1])
+        if type(link) == "string" then
+            worn = worn + 1
+            local name, itemLevel, minLevel, subType
+            if lookup then name, itemLevel, minLevel, subType = wornInfo(pcall(lookup, link)) end
+            lines[#lines + 1] = table.concat({ slot[2], plainOr(name, "string") ~= "unknown" and name
+                or link:match("%[(.-)%]") or "unknown", plainOr(itemLevel, "number"), plainOr(minLevel, "number"),
+                plainOr(subType, "string"), wornStats(link) }, " | ")
+        else
+            lines[#lines + 1] = slot[2] .. " | empty"
+        end
+    end
+    if worn == 0 then return {} end
+    local level, class = read(UnitLevel, "player"), read(UnitClass, "player")
+    table.insert(lines, 1, "Worn gear (equipped now and not for sale; use it only to judge upgrades). Character: level "
+        .. plainOr(level, "number") .. " " .. plainOr(class, "string"))
+    table.insert(lines, 2, "slot | name | item level | required level | type | stats")
+    return lines
+end
+
 local REPORT_COLUMNS = "Items: name | bag quantity | available after reserves | already allocated to craft"
     .. " | recommended action | recommended quantity | vendor each | auction ask each | estimated auction net each"
 
@@ -1472,6 +1532,12 @@ local function compute(pct, wantPage)
         report[#report + 1] = table.concat(learnNames, ", ")
     end
 
+    -- A problem reading the worn gear must never cost the player the rest of the report.
+    local gearOk, gearLines = pcall(wornGearLines)
+    if gearOk then
+        for _, line in ipairs(gearLines) do report[#report + 1] = line end
+    end
+
     if wantPage == "Farm" then
         lines = farmLines(picks)
     elseif wantPage == "Plan" then
@@ -1659,7 +1725,9 @@ local PROMPT = table.concat({
         .. "TSM minimum buyout is a cached reference with unknown age, not a live quote. If the scan ask is unknown, "
         .. "explain that specific gap and give a conditional recommendation using the reference and minimum ask "
         .. "to beat vendor. Never silently replace a missing scan price with a regional average. "
-        .. "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it.",
+        .. "For every craft opportunity line, smelting included, say whether to sell the raw materials or craft them, using its extra net per craft and verdict. Suggest a Craft step only when the verdict says craft it. "
+        .. "Worn gear lines, when present, show what the character has equipped. Never sell or vendor worn gear. "
+        .. "Use it to say when a bag item is better than what is worn, and say to equip it instead of selling it.",
     "",
     "After your advice, put the complete PLAN in one plain-text code block for easy copying, with no trailing backslashes. "
         .. "Start with a line containing only PLAN. Then write one line per step, in the order "
